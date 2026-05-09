@@ -59,15 +59,25 @@ class _MainNavigationState extends State<MainNavigation> {
 
   @override
   Widget build(BuildContext context) {
-    final screens = [
-      HomeScreen(server: _server, serverAddress: _serverAddress),
-      TransferScreen(server: _server),
-      FileManagerScreen(server: _server),
-      const Center(child: Text('Profil Screen')),
-    ];
-
     return Scaffold(
-      body: screens[_currentIndex],
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 400),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        transitionBuilder: (child, animation) {
+          return FadeTransition(
+            opacity: animation,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, 0.03),
+                end: Offset.zero,
+              ).animate(animation),
+              child: child,
+            ),
+          );
+        },
+        child: _buildScreen(),
+      ),
       bottomNavigationBar: CustomBottomNavBar(
         currentIndex: _currentIndex,
         onTap: (index) {
@@ -77,5 +87,18 @@ class _MainNavigationState extends State<MainNavigation> {
         },
       ),
     );
+  }
+
+  Widget _buildScreen() {
+    switch (_currentIndex) {
+      case 0:
+        return HomeScreen(key: const ValueKey(0), server: _server, serverAddress: _serverAddress);
+      case 1:
+        return TransferScreen(key: const ValueKey(1), server: _server, serverAddress: _serverAddress);
+      case 2:
+        return FileManagerScreen(key: const ValueKey(2), server: _server);
+      default:
+        return HomeScreen(key: const ValueKey(0), server: _server, serverAddress: _serverAddress);
+    }
   }
 }

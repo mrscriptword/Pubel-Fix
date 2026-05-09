@@ -15,35 +15,70 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   final List<File> _recentFiles = [];
-  final List<String> _nearbyDevices = []; // Mock dynamic list for now
+  late AnimationController _pulseController;
+  late AnimationController _fadeController;
+  late Animation<double> _pulseAnimation;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      duration: const Duration(milliseconds: 2000),
+      vsync: this,
+    )..repeat(reverse: true);
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.1).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+
+    _fadeController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    )..forward();
+    _fadeAnimation = CurvedAnimation(parent: _fadeController, curve: Curves.easeOut);
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    _fadeController.dispose();
+    super.dispose();
+  }
 
   Future<void> _pickAndShareFile() async {
-    // 1. Better Permission Handling for Android 13+
     bool hasPermission = false;
     
     if (Platform.isAndroid) {
-      if (await Permission.photos.request().isGranted || 
-          await Permission.videos.request().isGranted ||
-          await Permission.audio.request().isGranted ||
-          await Permission.storage.request().isGranted) {
-        hasPermission = true;
-      }
+      // Try granular permissions first (Android 13+)
+      final photos = await Permission.photos.request();
+      final videos = await Permission.videos.request();
+      final audio = await Permission.audio.request();
+      final storage = await Permission.storage.request();
+      
+      hasPermission = photos.isGranted || videos.isGranted || audio.isGranted || storage.isGranted;
     } else {
-      hasPermission = true; // iOS/Web usually handled by picker
+      hasPermission = true;
     }
 
     if (!hasPermission) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Izin penyimpanan diperlukan untuk berbagi file. Silakan aktifkan di Pengaturan.')),
+          SnackBar(
+            content: const Text('Izin diperlukan. Buka Pengaturan untuk mengaktifkan.'),
+            action: SnackBarAction(
+              label: 'Buka',
+              onPressed: () => openAppSettings(),
+            ),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
         );
       }
       return;
     }
 
-    // 2. Pick File
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles();
 
@@ -52,13 +87,24 @@ class _HomeScreenState extends State<HomeScreen> {
         widget.server.addFile(file);
         
         setState(() {
-          _recentFiles.insert(0, file); // Add to top of list
-          if (_recentFiles.length > 3) _recentFiles.removeLast();
+          _recentFiles.insert(0, file);
+          if (_recentFiles.length > 6) _recentFiles.removeLast();
         });
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('File ${result.files.single.name} siap diakses dari PC!')),
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text('${result.files.single.name} siap diakses!')),
+                ],
+              ),
+              backgroundColor: AppTheme.primaryColor,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
           );
         }
       }
@@ -67,210 +113,326 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  IconData _getFileIcon(String path) {
+    final lower = path.toLowerCase();
+    if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].any((e) => lower.endsWith(e))) return Icons.image_rounded;
+    if (['.mp4', '.mov', '.avi', '.mkv'].any((e) => lower.endsWith(e))) return Icons.movie_rounded;
+    if (['.mp3', '.wav', '.m4a', '.ogg'].any((e) => lower.endsWith(e))) return Icons.music_note_rounded;
+    if (['.pdf'].any((e) => lower.endsWith(e))) return Icons.picture_as_pdf_rounded;
+    if (['.doc', '.docx', '.xls', '.xlsx'].any((e) => lower.endsWith(e))) return Icons.description_rounded;
+    return Icons.insert_drive_file_rounded;
+  }
+
+  Color _getFileColor(String path) {
+    final lower = path.toLowerCase();
+    if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].any((e) => lower.endsWith(e))) return Colors.teal;
+    if (['.mp4', '.mov', '.avi', '.mkv'].any((e) => lower.endsWith(e))) return Colors.blue;
+    if (['.mp3', '.wav', '.m4a', '.ogg'].any((e) => lower.endsWith(e))) return Colors.orange;
+    if (['.pdf'].any((e) => lower.endsWith(e))) return Colors.red;
+    return AppTheme.primaryColor;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.surfaceColor,
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Top Purple Section
-            Container(
-              padding: const EdgeInsets.only(top: 60, left: 24, right: 24, bottom: 40),
-              decoration: const BoxDecoration(
-                color: AppTheme.primaryColor,
-                borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(40),
-                  bottomRight: Radius.circular(40),
+      body: FadeTransition(
+        opacity: _fadeAnimation,
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Top Gradient Section
+              Container(
+                padding: const EdgeInsets.only(top: 56, left: 24, right: 24, bottom: 40),
+                decoration: BoxDecoration(
+                  gradient: AppTheme.primaryGradient,
+                  borderRadius: const BorderRadius.only(
+                    bottomLeft: Radius.circular(32),
+                    bottomRight: Radius.circular(32),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.primaryColor.withOpacity(0.3),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: const [
+                            Text(
+                              'Selamat datang 👋',
+                              style: TextStyle(color: Colors.white70, fontSize: 14),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              'Pubel',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 28,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(Icons.qr_code_rounded, color: Colors.white, size: 24),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 36),
+                    // Animated Send Button
+                    ScaleTransition(
+                      scale: _pulseAnimation,
+                      child: GestureDetector(
+                        onTap: _pickAndShareFile,
+                        child: Container(
+                          width: 110,
+                          height: 110,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.white.withOpacity(0.3),
+                                blurRadius: 24,
+                                spreadRadius: 4,
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              ShaderMask(
+                                shaderCallback: (bounds) => AppTheme.primaryGradient.createShader(bounds),
+                                child: const Icon(Icons.share_rounded, color: Colors.white, size: 36),
+                              ),
+                              const SizedBox(height: 4),
+                              ShaderMask(
+                                shaderCallback: (bounds) => AppTheme.primaryGradient.createShader(bounds),
+                                child: const Text('Kirim', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    const Text(
+                      'Ketuk untuk mulai berbagi',
+                      style: TextStyle(color: Colors.white70, fontSize: 13),
+                    ),
+                    const SizedBox(height: 16),
+                    // IP Address badge
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: Colors.white.withOpacity(0.2)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.wifi_rounded, color: Colors.white, size: 16),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              widget.serverAddress,
+                              style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Selamat datang 👋',
-                        style: TextStyle(color: Colors.white70, fontSize: 16),
+              
+              const SizedBox(height: 28),
+              
+              // Recently Shared
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Terakhir Dibagikan',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                    if (_recentFiles.isNotEmpty)
+                      Text(
+                        '${_recentFiles.length} file',
+                        style: TextStyle(fontSize: 13, color: AppTheme.primaryColor),
                       ),
-                      Row(
-                        children: const [
-                          Icon(Icons.search, color: Colors.white),
-                          SizedBox(width: 16),
-                          Icon(Icons.more_vert, color: Colors.white),
-                        ],
-                      )
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              _recentFiles.isEmpty 
+                ? _buildEmptyState(Icons.history_rounded, 'Belum ada riwayat', 'File yang Anda kirim akan muncul di sini')
+                : SizedBox(
+                    height: 120,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      itemCount: _recentFiles.length,
+                      itemBuilder: (context, index) {
+                        final file = _recentFiles[index];
+                        final name = file.path.split('/').last;
+                        final size = '${(file.lengthSync() / 1024 / 1024).toStringAsFixed(1)} MB';
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 12),
+                          child: _buildRecentItem(_getFileIcon(file.path), name, size, _getFileColor(file.path)),
+                        );
+                      },
+                    ),
+                  ),
+              
+              const SizedBox(height: 28),
+              
+              // Server Status
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [AppTheme.surfaceDark, AppTheme.backgroundColorDark],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.backgroundColorDark.withOpacity(0.3),
+                        blurRadius: 15,
+                        offset: const Offset(0, 5),
+                      ),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  const Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Pubel',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                  // Send Button
-                  GestureDetector(
-                    onTap: _pickAndShareFile,
-                    child: Container(
-                      width: 100,
-                      height: 100,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 10,
-                            offset: const Offset(0, 5),
-                          )
-                        ]
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.share, color: AppTheme.primaryColor, size: 32),
-                          const SizedBox(height: 4),
-                          const Text('Kirim', style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold)),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'Ketuk untuk mulai berbagi',
-                    style: TextStyle(color: Colors.white, fontSize: 14),
-                  ),
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      'Akses PC: ${widget.serverAddress}',
-                      style: const TextStyle(color: Colors.white, fontSize: 14),
-                    ),
-                  )
-                ],
-              ),
-            ),
-            
-            const SizedBox(height: 24),
-            
-            // Recently Shared
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'TERAKHIR DIBAGIKAN',
-                    style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 16),
-                  _recentFiles.isEmpty 
-                    ? const Center(child: Text('Belum ada riwayat pengiriman', style: TextStyle(color: Colors.grey, fontSize: 14)))
-                    : Row(
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        children: _recentFiles.map((file) => Padding(
-                          padding: const EdgeInsets.only(right: 12),
-                          child: _buildRecentItem(Icons.insert_drive_file, file.path.split('/').last, '${(file.lengthSync() / 1024 / 1024).toStringAsFixed(1)} MB'),
-                        )).toList(),
-                      ),
-                ],
-              ),
-            ),
-            
-            const SizedBox(height: 24),
-            
-            // Nearby Devices
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'PERANGKAT TERDEKAT',
-                    style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 16),
-                  _nearbyDevices.isEmpty
-                    ? const Center(
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(vertical: 20),
-                          child: Text('Mencari perangkat terdekat...', style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic)),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(14),
                         ),
-                      )
-                    : Column(
-                        children: _nearbyDevices.map((device) => _buildDeviceItem('P', device, 'Tersedia')).toList(),
+                        child: const Icon(Icons.computer_rounded, color: AppTheme.primaryLight, size: 28),
                       ),
-                ],
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Akses dari PC', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Buka ${widget.serverAddress} di browser PC',
+                              style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: widget.serverAddress.contains('http') ? Colors.greenAccent : Colors.orange,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: (widget.serverAddress.contains('http') ? Colors.greenAccent : Colors.orange).withOpacity(0.5),
+                              blurRadius: 8,
+                              spreadRadius: 2,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
-            const SizedBox(height: 24),
+              const SizedBox(height: 32),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(IconData icon, String title, String subtitle) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 32),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.grey.shade100),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, size: 40, color: Colors.grey.shade300),
+            const SizedBox(height: 12),
+            Text(title, style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey.shade500, fontSize: 14)),
+            const SizedBox(height: 4),
+            Text(subtitle, style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildRecentItem(IconData icon, String title, String size) {
+  Widget _buildRecentItem(IconData icon, String title, String size, Color color) {
     return Container(
-      width: 100,
-      padding: const EdgeInsets.all(12),
+      width: 110,
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, size: 32, color: AppTheme.textPrimary),
-          const SizedBox(height: 8),
-          Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
-          Text(size, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.1),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
         ],
       ),
-    );
-  }
-
-  Widget _buildDeviceItem(String initial, String name, String subtitle, {bool isGreen = false}) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          CircleAvatar(
-            backgroundColor: isGreen ? Colors.teal : AppTheme.primaryColor,
-            child: Text(initial, style: const TextStyle(color: Colors.white)),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                Text(subtitle, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-              ],
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
             ),
+            child: Icon(icon, size: 24, color: color),
           ),
-          ElevatedButton(
-            onPressed: () {},
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryColor,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            ),
-            child: const Text('Hubung', style: TextStyle(color: Colors.white)),
-          )
+          const SizedBox(height: 10),
+          Text(title, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis, maxLines: 1),
+          Text(size, style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
         ],
       ),
     );
