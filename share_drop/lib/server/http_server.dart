@@ -18,31 +18,29 @@ class LocalServer {
     final info = NetworkInfo();
     _ipAddress = await info.getWifiIP();
 
-    if (_ipAddress == null) {
-      return null;
-    }
+    if (_ipAddress == null) return null;
 
     final app = Router();
 
-    // Main page
     app.get('/', (Request request) {
       return Response.ok(_buildHtmlPage(), headers: {'content-type': 'text/html; charset=utf-8'});
     });
 
-    // API: list files and folders (Explorer)
     app.get('/api/list', (Request request) async {
-      final params = request.url.queryParameters;
-      final relativePath = params['path'] ?? '';
-      final fullPath = p.join(_rootDir, relativePath);
-
-      final directory = Directory(fullPath);
-      if (!await directory.exists()) {
-        return Response.notFound(jsonEncode({'error': 'Directory not found'}));
-      }
-
       try {
+        final params = request.url.queryParameters;
+        final relativePath = params['path'] ?? '';
+        final fullPath = p.join(_rootDir, relativePath);
+
+        final directory = Directory(fullPath);
+        if (!await directory.exists()) {
+          return Response.notFound(jsonEncode({'error': 'Folder tidak ditemukan. Pastikan izin akses file sudah diberikan di HP.'}));
+        }
+
         final List<Map<String, dynamic>> items = [];
-        await for (final entity in directory.list()) {
+        await for (final entity in directory.list().handleError((e) {
+          print('Error listing directory: $e');
+        })) {
           final name = p.basename(entity.path);
           final isDir = entity is Directory;
           int size = 0;
@@ -65,11 +63,10 @@ class LocalServer {
 
         return Response.ok(jsonEncode(items), headers: {'content-type': 'application/json'});
       } catch (e) {
-        return Response.internalServerError(body: jsonEncode({'error': e.toString()}));
+        return Response.internalServerError(body: jsonEncode({'error': 'Izin ditolak atau folder tidak bisa diakses.'}));
       }
     });
 
-    // API: Shared files (History/Picked)
     app.get('/api/shared', (Request request) {
       final items = sharedFiles.map((file) {
         final name = p.basename(file.path);
@@ -81,36 +78,36 @@ class LocalServer {
           'size': size,
           'path': file.path.replaceFirst(_rootDir, '').replaceFirst('/', ''),
         };
-      }).toList().reversed.toList(); // Newest first
+      }).toList().reversed.toList();
 
       return Response.ok(jsonEncode(items), headers: {'content-type': 'application/json'});
     });
 
-    // API: Download file (can use full path or filename)
     app.get('/api/download', (Request request) async {
-      final params = request.url.queryParameters;
-      final path = params['path'] ?? '';
-      final fullPath = p.join(_rootDir, path);
-      final file = File(fullPath);
+      try {
+        final params = request.url.queryParameters;
+        final path = params['path'] ?? '';
+        final fullPath = p.join(_rootDir, path);
+        final file = File(fullPath);
 
-      if (!await file.exists()) {
-        return Response.notFound('File not found');
+        if (!await file.exists()) return Response.notFound('File not found');
+
+        final fileName = p.basename(fullPath);
+        return Response.ok(file.openRead(), headers: {
+          'Content-Type': 'application/octet-stream',
+          'Content-Disposition': 'attachment; filename="$fileName"'
+        });
+      } catch (e) {
+        return Response.internalServerError(body: 'Gagal mendownload file');
       }
-
-      final fileName = p.basename(fullPath);
-      return Response.ok(file.openRead(), headers: {
-        'Content-Type': 'application/octet-stream',
-        'Content-Disposition': 'attachment; filename="$fileName"'
-      });
     });
 
-    // API: Upload file
     app.post('/api/upload', (Request request) async {
-      final params = request.url.queryParameters;
-      final targetPath = params['path'] ?? '';
-      final fullDestDir = p.join(_rootDir, targetPath);
-
       try {
+        final params = request.url.queryParameters;
+        final targetPath = params['path'] ?? '';
+        final fullDestDir = p.join(_rootDir, targetPath);
+
         final contentType = request.headers['content-type'] ?? '';
         final boundary = contentType.split('boundary=').last;
         final bodyBytes = await request.read().toList();
@@ -133,14 +130,12 @@ class LocalServer {
         if (dataEnd == -1) return Response(400, body: 'Invalid upload data structure');
         
         final fileData = bytes.sublist(dataStart, dataEnd - 2);
-        
         final destFile = File(p.join(fullDestDir, filename));
         await destFile.writeAsBytes(fileData);
         
-        // Add to shared files so it shows in phone UI
         addFile(destFile);
 
-        return Response.ok(jsonEncode({'success': true, 'message': 'File $filename berhasil diupload!'}));
+        return Response.ok(jsonEncode({'success': true, 'message': 'Berhasil!'}));
       } catch (e) {
         return Response.internalServerError(body: jsonEncode({'error': e.toString()}));
       }
@@ -192,40 +187,42 @@ class LocalServer {
     .bg-glow-2 { bottom: -150px; left: -100px; background: #6C63FF; }
     
     .container { max-width: 1000px; margin: 0 auto; padding: 40px 24px; position: relative; z-index: 1; }
-    .header { text-align: center; margin-bottom: 30px; }
-    .logo-box { display: inline-flex; align-items: center; justify-content: center; width: 60px; height: 60px; background: linear-gradient(135deg, #8A56AC, #6C63FF); border-radius: 18px; margin-bottom: 12px; box-shadow: 0 10px 30px rgba(138, 86, 172, 0.4); }
-    .logo-box svg { width: 30px; height: 30px; fill: #fff; }
+    .header { text-align: center; margin-bottom: 24px; }
+    .logo-box { display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 56px; background: linear-gradient(135deg, #8A56AC, #6C63FF); border-radius: 16px; margin-bottom: 12px; box-shadow: 0 10px 30px rgba(138, 86, 172, 0.4); }
+    .logo-box svg { width: 28px; height: 28px; fill: #fff; }
     
-    .tabs { display: flex; gap: 10px; margin-bottom: 24px; background: rgba(255,255,255,0.05); padding: 6px; border-radius: 14px; }
-    .tab { flex: 1; text-align: center; padding: 12px; cursor: pointer; border-radius: 10px; transition: 0.3s; font-weight: 500; font-size: 14px; color: rgba(255,255,255,0.5); }
+    .tabs { display: flex; gap: 8px; margin-bottom: 20px; background: rgba(255,255,255,0.05); padding: 5px; border-radius: 12px; }
+    .tab { flex: 1; text-align: center; padding: 10px; cursor: pointer; border-radius: 9px; transition: 0.3s; font-size: 13px; color: rgba(255,255,255,0.4); font-weight: 500; }
     .tab.active { background: linear-gradient(135deg, #8A56AC, #6C63FF); color: #fff; }
     
     .view-container { display: none; }
     .view-container.active { display: block; }
 
-    .breadcrumb { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; padding: 12px 20px; background: rgba(255,255,255,0.03); border-radius: 12px; font-size: 13px; overflow-x: auto; }
-    .breadcrumb-item { cursor: pointer; color: rgba(255,255,255,0.4); }
+    .breadcrumb { display: flex; align-items: center; gap: 6px; margin-bottom: 16px; padding: 10px 18px; background: rgba(255,255,255,0.03); border-radius: 10px; font-size: 12px; overflow-x: auto; }
+    .breadcrumb-item { cursor: pointer; color: rgba(255,255,255,0.4); white-space: nowrap; }
     .breadcrumb-item.active { color: #fff; font-weight: 600; }
     
-    .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-    .btn { border: none; color: white; padding: 10px 20px; border-radius: 10px; font-size: 13px; font-weight: 500; cursor: pointer; transition: 0.3s; display: flex; align-items: center; gap: 8px; background: linear-gradient(135deg, #8A56AC, #6C63FF); }
-    .btn:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(138, 86, 172, 0.4); }
-    .upload-input { position: absolute; opacity: 0; width: 1px; }
+    .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .btn { border: none; color: white; padding: 8px 16px; border-radius: 10px; font-size: 12px; font-weight: 500; cursor: pointer; transition: 0.3s; display: flex; align-items: center; gap: 6px; background: linear-gradient(135deg, #8A56AC, #6C63FF); }
+    .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(138, 86, 172, 0.3); }
+    .btn-secondary { background: rgba(255,255,255,0.1); }
 
-    .file-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 16px; }
-    .item { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 16px; padding: 18px; text-align: center; transition: 0.3s; cursor: pointer; display: flex; flex-direction: column; align-items: center; }
-    .item:hover { background: rgba(138, 86, 172, 0.08); border-color: rgba(138, 86, 172, 0.3); transform: translateY(-4px); }
-    .item-icon { font-size: 36px; margin-bottom: 10px; }
-    .item-name { font-size: 12px; font-weight: 500; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .item-size { font-size: 10px; color: rgba(255,255,255,0.4); margin-top: 4px; }
+    .file-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; }
+    .item { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 14px; padding: 16px; text-align: center; transition: 0.2s; cursor: pointer; display: flex; flex-direction: column; align-items: center; }
+    .item:hover { background: rgba(138, 86, 172, 0.1); border-color: rgba(138, 86, 172, 0.3); }
+    .item-icon { font-size: 32px; margin-bottom: 8px; }
+    .item-name { font-size: 11px; font-weight: 500; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .item-size { font-size: 9px; color: rgba(255,255,255,0.3); margin-top: 4px; }
     
-    .loading-overlay { position: fixed; inset: 0; background: rgba(13,13,26,0.8); display: none; align-items: center; justify-content: center; z-index: 999; }
+    .loading-overlay { position: fixed; inset: 0; background: rgba(13,13,26,0.7); display: none; align-items: center; justify-content: center; z-index: 999; backdrop-filter: blur(4px); }
     .loading-overlay.active { display: flex; }
-    .spinner { width: 30px; height: 30px; border: 3px solid rgba(255,255,255,0.1); border-top-color: #8A56AC; border-radius: 50%; animation: spin 1s linear infinite; }
+    .spinner { width: 30px; height: 30px; border: 3px solid rgba(255,255,255,0.1); border-top-color: #8A56AC; border-radius: 50%; animation: spin 0.8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
     
-    .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(100px); background: #8A56AC; padding: 10px 20px; border-radius: 10px; font-size: 13px; transition: 0.4s; z-index: 1000; }
+    .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(100px); background: #8A56AC; padding: 10px 20px; border-radius: 10px; font-size: 12px; transition: 0.4s; z-index: 1000; box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
     .toast.show { transform: translateX(-50%) translateY(0); }
+    
+    .empty-msg { text-align: center; padding: 60px 0; color: rgba(255,255,255,0.3); font-size: 13px; width: 100%; grid-column: 1 / -1; }
   </style>
 </head>
 <body>
@@ -237,23 +234,24 @@ class LocalServer {
       <div class="logo-box">
         <svg viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z"/></svg>
       </div>
-      <h2>Pubel Browser</h2>
+      <h2 style="font-size: 20px; letter-spacing: 1px;">Pubel Explorer</h2>
     </div>
 
     <div class="tabs">
-      <div class="tab active" onclick="switchTab('explorer')">📂 Explorer (Isi HP)</div>
-      <div class="tab" onclick="switchTab('shared')">📤 Dikirim dari HP</div>
+      <div id="tab-explorer" class="tab active" onclick="switchTab('explorer')">📂 Explorer</div>
+      <div id="tab-shared" class="tab" onclick="switchTab('shared')">📤 Shared</div>
     </div>
 
     <!-- Explorer View -->
     <div id="explorerView" class="view-container active">
       <div class="breadcrumb" id="breadcrumb"></div>
       <div class="toolbar">
-        <div id="explorerCount" style="color: rgba(255,255,255,0.4); font-size: 13px;">Memuat...</div>
-        <button class="btn" onclick="document.getElementById('fileInput').click()">
-          📤 Upload ke Folder Ini
-          <input type="file" id="fileInput" class="upload-input" multiple>
-        </button>
+        <div id="explorerCount" style="color: rgba(255,255,255,0.3); font-size: 11px;">Memuat...</div>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-secondary" onclick="loadExplorer(currentPath)">🔄 Refresh</button>
+          <button class="btn" onclick="document.getElementById('fileInput').click()">📤 Upload</button>
+        </div>
+        <input type="file" id="fileInput" style="display:none" multiple>
       </div>
       <div class="file-grid" id="explorerGrid"></div>
     </div>
@@ -261,7 +259,8 @@ class LocalServer {
     <!-- Shared View -->
     <div id="sharedView" class="view-container">
       <div class="toolbar">
-        <div id="sharedCount" style="color: rgba(255,255,255,0.4); font-size: 13px;">Daftar file yang baru saja diklik/dikirim dari aplikasi HP</div>
+        <div style="color: rgba(255,255,255,0.3); font-size: 11px;">File yang baru saja dipilih di HP</div>
+        <button class="btn btn-secondary" onclick="loadShared()">🔄 Refresh</button>
       </div>
       <div class="file-grid" id="sharedGrid"></div>
     </div>
@@ -272,24 +271,22 @@ class LocalServer {
 
   <script>
     let currentPath = '';
+    let currentTab = 'explorer';
     const explorerGrid = document.getElementById('explorerGrid');
     const sharedGrid = document.getElementById('sharedGrid');
     const loading = document.getElementById('loading');
     const toast = document.getElementById('toast');
 
     function switchTab(tab) {
+      currentTab = tab;
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
       document.querySelectorAll('.view-container').forEach(v => v.classList.remove('active'));
       
-      if (tab === 'explorer') {
-        document.querySelector('.tab:nth-child(1)').classList.add('active');
-        document.getElementById('explorerView').classList.add('active');
-        loadExplorer(currentPath);
-      } else {
-        document.querySelector('.tab:nth-child(2)').classList.add('active');
-        document.getElementById('sharedView').classList.add('active');
-        loadShared();
-      }
+      document.getElementById('tab-' + tab).classList.add('active');
+      document.getElementById(tab + 'View').classList.add('active');
+      
+      if (tab === 'explorer') loadExplorer(currentPath);
+      else loadShared();
     }
 
     async function loadExplorer(path) {
@@ -298,12 +295,27 @@ class LocalServer {
       updateBreadcrumb();
       try {
         const res = await fetch('/api/list?path=' + encodeURIComponent(path));
+        if (!res.ok) {
+           const err = await res.json();
+           showToast(err.error || 'Gagal memuat');
+           explorerGrid.innerHTML = '<div class="empty-msg">⚠️ Gagal memuat folder. Pastikan izin akses file sudah diberikan di aplikasi HP.</div>';
+           return;
+        }
         const items = await res.json();
         explorerGrid.innerHTML = '';
         document.getElementById('explorerCount').textContent = items.length + ' item';
-        items.forEach(item => explorerGrid.appendChild(createItemEl(item, true)));
-      } catch (e) { showToast('Gagal memuat folder'); }
-      loading.classList.remove('active');
+        
+        if (items.length === 0) {
+          explorerGrid.innerHTML = '<div class="empty-msg">Folder ini kosong</div>';
+        } else {
+          items.forEach(item => explorerGrid.appendChild(createItemEl(item)));
+        }
+      } catch (e) { 
+        showToast('Kesalahan koneksi'); 
+        explorerGrid.innerHTML = '<div class="empty-msg">⚠️ Kesalahan koneksi ke HP</div>';
+      } finally {
+        loading.classList.remove('active');
+      }
     }
 
     async function loadShared() {
@@ -312,18 +324,22 @@ class LocalServer {
         const res = await fetch('/api/shared');
         const items = await res.json();
         sharedGrid.innerHTML = '';
-        items.forEach(item => sharedGrid.appendChild(createItemEl(item, false)));
-      } catch (e) { showToast('Gagal memuat file'); }
-      loading.classList.remove('active');
+        if (items.length === 0) {
+          sharedGrid.innerHTML = '<div class="empty-msg">Belum ada file yang dipilih di HP</div>';
+        } else {
+          items.forEach(item => sharedGrid.appendChild(createItemEl(item)));
+        }
+      } catch (e) { showToast('Gagal memuat file shared'); }
+      finally { loading.classList.remove('active'); }
     }
 
-    function createItemEl(item, isExplorer) {
+    function createItemEl(item) {
       const div = document.createElement('div');
       div.className = 'item';
       let icon = item.isDir ? '📂' : '📄';
       if (!item.isDir) {
         const ext = item.name.split('.').pop().toLowerCase();
-        if (['jpg','jpeg','png','gif'].includes(ext)) icon = '🖼️';
+        if (['jpg','jpeg','png','gif','webp'].includes(ext)) icon = '🖼️';
         else if (['mp4','mkv','mov'].includes(ext)) icon = '🎬';
         else if (['mp3','wav','m4a'].includes(ext)) icon = '🎵';
       }
@@ -338,14 +354,17 @@ class LocalServer {
 
     function updateBreadcrumb() {
       const b = document.getElementById('breadcrumb');
-      b.innerHTML = '<span class="breadcrumb-item" onclick="loadExplorer(\'\')">Penyimpanan Internal</span>';
-      if (!currentPath) return;
+      b.innerHTML = '<span class="breadcrumb-item" onclick="loadExplorer(\'\')">Internal Storage</span>';
+      if (!currentPath) {
+        b.querySelector('.breadcrumb-item').classList.add('active');
+        return;
+      }
       let pathAcc = '';
       currentPath.split('/').forEach(part => {
         if (!part) return;
         pathAcc += (pathAcc ? '/' : '') + part;
         const currentPathCopy = pathAcc;
-        b.innerHTML += ' / <span class="breadcrumb-item" onclick="loadExplorer(\''+currentPathCopy+'\')">'+part+'</span>';
+        b.innerHTML += ' <span style="opacity:0.2">/</span> <span class="breadcrumb-item" onclick="loadExplorer(\''+currentPathCopy+'\')">'+part+'</span>';
       });
       b.querySelector('.breadcrumb-item:last-child').classList.add('active');
     }
@@ -363,7 +382,9 @@ class LocalServer {
       for (const file of files) {
         const formData = new FormData();
         formData.append('file', file);
-        await fetch('/api/upload?path=' + encodeURIComponent(currentPath), { method: 'POST', body: formData });
+        try {
+          await fetch('/api/upload?path=' + encodeURIComponent(currentPath), { method: 'POST', body: formData });
+        } catch(e) { showToast('Gagal upload: ' + file.name); }
       }
       loading.classList.remove('active');
       showToast('Berhasil upload ' + files.length + ' file');
