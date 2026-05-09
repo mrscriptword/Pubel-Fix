@@ -1,10 +1,38 @@
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'dart:io';
 import '../theme.dart';
+import '../server/http_server.dart';
 
 class HomeScreen extends StatelessWidget {
   final String serverAddress;
+  final LocalServer server;
   
-  const HomeScreen({Key? key, this.serverAddress = 'Menunggu IP...'}) : super(key: key);
+  const HomeScreen({Key? key, required this.server, this.serverAddress = 'Menunggu IP...'}) : super(key: key);
+
+  Future<void> _pickAndShareFile(BuildContext context) async {
+    // 1. Request Permission
+    var status = await Permission.storage.request();
+    if (status.isDenied) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Izin penyimpanan diperlukan untuk berbagi file')),
+      );
+      return;
+    }
+
+    // 2. Pick File
+    FilePickerResult? result = await FilePicker.platform.pickFiles();
+
+    if (result != null) {
+      File file = File(result.files.single.path!);
+      server.addFile(file);
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('File ${result.files.single.name} siap diakses dari PC!')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -57,27 +85,30 @@ class HomeScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 32),
                   // Send Button
-                  Container(
-                    width: 100,
-                    height: 100,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 10,
-                          offset: const Offset(0, 5),
-                        )
-                      ]
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.share, color: AppTheme.primaryColor, size: 32),
-                        const SizedBox(height: 4),
-                        Text('Kirim', style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold)),
-                      ],
+                  GestureDetector(
+                    onTap: () => _pickAndShareFile(context),
+                    child: Container(
+                      width: 100,
+                      height: 100,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 10,
+                            offset: const Offset(0, 5),
+                          )
+                        ]
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.share, color: AppTheme.primaryColor, size: 32),
+                          const SizedBox(height: 4),
+                          const Text('Kirim', style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 24),
