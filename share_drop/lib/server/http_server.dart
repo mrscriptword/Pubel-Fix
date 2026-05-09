@@ -151,6 +151,10 @@ class LocalServer {
     return -1;
   }
 
+  void addFile(File file) {
+    sharedFiles.add(file);
+  }
+
   Future<void> stop() async {
     await _server?.close(force: true);
   }
