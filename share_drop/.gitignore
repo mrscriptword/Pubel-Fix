@@ -1,0 +1,91 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.buildlog/
+.history
+.svn/
+.vscode/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# The regular Expression to exclude the visual studio code folder
+.vscode/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+/build/
+
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Android Studio will create this file for you
+local.properties
+
+# Android related
+**/android/**/generated/
+**/android/gen/
+**/android/out/
+**/android/bin/
+**/android/build/
+**/android/captures/
+**/android/app/src/main/res/values/strings.xml
+**/android/app/src/main/res/values-v21/styles.xml
+**/android/app/src/main/res/values/styles.xml
+**/android/app/src/main/res/mipmap-hdpi/ic_launcher.png
+**/android/app/src/main/res/mipmap-mdpi/ic_launcher.png
+**/android/app/src/main/res/mipmap-xhdpi/ic_launcher.png
+**/android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
+**/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+
+# iOS related
+**/ios/**/*.mode1v3
+**/ios/**/*.mode2v3
+**/ios/**/*.perspectivev3
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/flutter_export_environment.sh
+**/ios/Flutter/App.framework
+**/ios/Flutter/App.structurereport
+**/ios/Runner/GeneratedPluginRegistrant.[mh]
+
+# Web related
+lib/generated_plugin_registrant.dart
+
+# macOS related
+**/macos/Flutter/ephemeral/
+**/macos/Flutter/GeneratedPluginRegistrant.swift
+
+# Windows related
+**/windows/flutter/ephemeral/
+**/windows/flutter/generated_plugin_registrant.cc
+**/windows/flutter/generated_plugin_registrant.h
+
+# Linux related
+**/linux/flutter/ephemeral/
+**/linux/generated_plugin_registrant.cc
+**/linux/generated_plugin_registrant.h
+
+# Firebase related
+.firebase/
+google-services.json
+GoogleService-Info.plist
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
