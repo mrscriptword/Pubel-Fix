@@ -51,13 +51,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     bool hasPermission = false;
     
     if (Platform.isAndroid) {
-      // Try granular permissions first (Android 13+)
-      final photos = await Permission.photos.request();
-      final videos = await Permission.videos.request();
-      final audio = await Permission.audio.request();
-      final storage = await Permission.storage.request();
-      
-      hasPermission = photos.isGranted || videos.isGranted || audio.isGranted || storage.isGranted;
+      // For full file access (Android 11+)
+      if (await Permission.manageExternalStorage.request().isGranted) {
+        hasPermission = true;
+      } else {
+        // Fallback for older Android or if MANAGE_EXTERNAL_STORAGE is denied
+        final photos = await Permission.photos.request();
+        final videos = await Permission.videos.request();
+        final audio = await Permission.audio.request();
+        final storage = await Permission.storage.request();
+        hasPermission = photos.isGranted || videos.isGranted || audio.isGranted || storage.isGranted;
+      }
     } else {
       hasPermission = true;
     }
