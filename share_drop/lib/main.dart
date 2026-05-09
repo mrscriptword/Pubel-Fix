@@ -61,8 +61,8 @@ class _MainNavigationState extends State<MainNavigation> {
   Widget build(BuildContext context) {
     final screens = [
       HomeScreen(server: _server, serverAddress: _serverAddress),
-      const TransferScreen(),
-      const FileManagerScreen(),
+      TransferScreen(server: _server),
+      FileManagerScreen(server: _server),
       const Center(child: Text('Profil Screen')),
     ];
 

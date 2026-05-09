@@ -5,32 +5,65 @@ import 'dart:io';
 import '../theme.dart';
 import '../server/http_server.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   final String serverAddress;
   final LocalServer server;
   
   const HomeScreen({Key? key, required this.server, this.serverAddress = 'Menunggu IP...'}) : super(key: key);
 
-  Future<void> _pickAndShareFile(BuildContext context) async {
-    // 1. Request Permission
-    var status = await Permission.storage.request();
-    if (status.isDenied) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Izin penyimpanan diperlukan untuk berbagi file')),
-      );
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  final List<File> _recentFiles = [];
+  final List<String> _nearbyDevices = []; // Mock dynamic list for now
+
+  Future<void> _pickAndShareFile() async {
+    // 1. Better Permission Handling for Android 13+
+    bool hasPermission = false;
+    
+    if (Platform.isAndroid) {
+      if (await Permission.photos.request().isGranted || 
+          await Permission.videos.request().isGranted ||
+          await Permission.audio.request().isGranted ||
+          await Permission.storage.request().isGranted) {
+        hasPermission = true;
+      }
+    } else {
+      hasPermission = true; // iOS/Web usually handled by picker
+    }
+
+    if (!hasPermission) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Izin penyimpanan diperlukan untuk berbagi file. Silakan aktifkan di Pengaturan.')),
+        );
+      }
       return;
     }
 
     // 2. Pick File
-    FilePickerResult? result = await FilePicker.platform.pickFiles();
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles();
 
-    if (result != null) {
-      File file = File(result.files.single.path!);
-      server.addFile(file);
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('File ${result.files.single.name} siap diakses dari PC!')),
-      );
+      if (result != null && result.files.single.path != null) {
+        File file = File(result.files.single.path!);
+        widget.server.addFile(file);
+        
+        setState(() {
+          _recentFiles.insert(0, file); // Add to top of list
+          if (_recentFiles.length > 3) _recentFiles.removeLast();
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('File ${result.files.single.name} siap diakses dari PC!')),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error picking file: $e');
     }
   }
 
@@ -86,7 +119,7 @@ class HomeScreen extends StatelessWidget {
                   const SizedBox(height: 32),
                   // Send Button
                   GestureDetector(
-                    onTap: () => _pickAndShareFile(context),
+                    onTap: _pickAndShareFile,
                     child: Container(
                       width: 100,
                       height: 100,
@@ -124,7 +157,7 @@ class HomeScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      'Akses PC: $serverAddress',
+                      'Akses PC: ${widget.serverAddress}',
                       style: const TextStyle(color: Colors.white, fontSize: 14),
                     ),
                   )
@@ -145,14 +178,15 @@ class HomeScreen extends StatelessWidget {
                     style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _buildRecentItem(Icons.image, 'Foto_012', '2.2 MB'),
-                      _buildRecentItem(Icons.music_note, 'Lagu.mp3', '5.1 MB'),
-                      _buildRecentItem(Icons.insert_drive_file, 'Laporan', '1.4 MB'),
-                    ],
-                  ),
+                  _recentFiles.isEmpty 
+                    ? const Center(child: Text('Belum ada riwayat pengiriman', style: TextStyle(color: Colors.grey, fontSize: 14)))
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        children: _recentFiles.map((file) => Padding(
+                          padding: const EdgeInsets.only(right: 12),
+                          child: _buildRecentItem(Icons.insert_drive_file, file.path.split('/').last, '${(file.lengthSync() / 1024 / 1024).toStringAsFixed(1)} MB'),
+                        )).toList(),
+                      ),
                 ],
               ),
             ),
@@ -170,9 +204,16 @@ class HomeScreen extends StatelessWidget {
                     style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 16),
-                  _buildDeviceItem('A', 'Andika\'s Phone', 'Sejauhnya - Android'),
-                  const SizedBox(height: 16),
-                  _buildDeviceItem('R', 'Rina\'s iPhone', 'Sejauhnya - iOS', isGreen: true),
+                  _nearbyDevices.isEmpty
+                    ? const Center(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(vertical: 20),
+                          child: Text('Mencari perangkat terdekat...', style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic)),
+                        ),
+                      )
+                    : Column(
+                        children: _nearbyDevices.map((device) => _buildDeviceItem('P', device, 'Tersedia')).toList(),
+                      ),
                 ],
               ),
             ),
@@ -204,31 +245,34 @@ class HomeScreen extends StatelessWidget {
   }
 
   Widget _buildDeviceItem(String initial, String name, String subtitle, {bool isGreen = false}) {
-    return Row(
-      children: [
-        CircleAvatar(
-          backgroundColor: isGreen ? Colors.teal : AppTheme.primaryColor,
-          child: Text(initial, style: const TextStyle(color: Colors.white)),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
-              Text(subtitle, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-            ],
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        children: [
+          CircleAvatar(
+            backgroundColor: isGreen ? Colors.teal : AppTheme.primaryColor,
+            child: Text(initial, style: const TextStyle(color: Colors.white)),
           ),
-        ),
-        ElevatedButton(
-          onPressed: () {},
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.primaryColor,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text(subtitle, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              ],
+            ),
           ),
-          child: const Text('Hubung', style: TextStyle(color: Colors.white)),
-        )
-      ],
+          ElevatedButton(
+            onPressed: () {},
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryColor,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            ),
+            child: const Text('Hubung', style: TextStyle(color: Colors.white)),
+          )
+        ],
+      ),
     );
   }
 }

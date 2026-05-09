@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
 import '../theme.dart';
+import '../server/http_server.dart';
 
 class FileManagerScreen extends StatelessWidget {
-  const FileManagerScreen({Key? key}) : super(key: key);
+  final LocalServer server;
+  
+  const FileManagerScreen({Key? key, required this.server}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -30,29 +34,64 @@ class FileManagerScreen extends StatelessWidget {
         ),
         body: TabBarView(
           children: [
-            _buildGridView(),
-            const Center(child: Text('Foto')),
-            const Center(child: Text('Video')),
-            const Center(child: Text('Musik')),
+            _buildFileGrid(server.sharedFiles),
+            _buildFileGrid(server.sharedFiles.where((f) => _isImage(f.path)).toList()),
+            _buildFileGrid(server.sharedFiles.where((f) => _isVideo(f.path)).toList()),
+            _buildFileGrid(server.sharedFiles.where((f) => _isAudio(f.path)).toList()),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildGridView() {
-    return GridView.count(
+  bool _isImage(String path) => ['.jpg', '.jpeg', '.png', '.gif', '.webp'].any((ext) => path.toLowerCase().endsWith(ext));
+  bool _isVideo(String path) => ['.mp4', '.mov', '.avi', '.mkv'].any((ext) => path.toLowerCase().endsWith(ext));
+  bool _isAudio(String path) => ['.mp3', '.wav', '.m4a', '.ogg'].any((ext) => path.toLowerCase().endsWith(ext));
+
+  Widget _buildFileGrid(List<File> files) {
+    if (files.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.folder_open_outlined, size: 64, color: Colors.grey.withOpacity(0.5)),
+            const SizedBox(height: 16),
+            const Text('Tidak ada file ditemukan', style: TextStyle(color: Colors.grey, fontSize: 16)),
+          ],
+        ),
+      );
+    }
+
+    return GridView.builder(
       padding: const EdgeInsets.all(24),
-      crossAxisCount: 2,
-      crossAxisSpacing: 16,
-      mainAxisSpacing: 16,
-      childAspectRatio: 0.85,
-      children: [
-        _buildFileCard(Icons.camera_alt, 'Liburan_Bali.jpg', '4.1 MB • Foto', Colors.teal.shade100),
-        _buildFileCard(Icons.movie, 'Vlog_jalan.mp4', '132 MB • Video', Colors.teal.shade200),
-        _buildFileCard(Icons.description, 'Laporan_Q2.pdf', '2.2 MB • Dokumen', Colors.amber.shade100),
-        _buildFileCard(Icons.music_note, 'Playlist_Gym.mp3', '24 MB • Musik', AppTheme.primaryColor.withOpacity(0.2)),
-      ],
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+        childAspectRatio: 0.85,
+      ),
+      itemCount: files.length,
+      itemBuilder: (context, index) {
+        final file = files[index];
+        final name = file.path.split('/').last;
+        final size = '${(file.lengthSync() / 1024 / 1024).toStringAsFixed(1)} MB';
+        
+        IconData icon = Icons.insert_drive_file;
+        Color color = Colors.grey.shade100;
+
+        if (_isImage(file.path)) {
+          icon = Icons.image;
+          color = Colors.teal.shade100;
+        } else if (_isVideo(file.path)) {
+          icon = Icons.movie;
+          color = Colors.blue.shade100;
+        } else if (_isAudio(file.path)) {
+          icon = Icons.music_note;
+          color = AppTheme.primaryColor.withOpacity(0.2);
+        }
+
+        return _buildFileCard(icon, name, size, color);
+      },
     );
   }
 
