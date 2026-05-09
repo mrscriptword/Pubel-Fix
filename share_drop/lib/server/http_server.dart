@@ -12,7 +12,7 @@ class LocalServer {
   final int _port = 8080;
   final String _rootDir = '/storage/emulated/0';
 
-  final List<File> sharedFiles = []; // Keep for backward compatibility with UI if needed
+  final List<File> sharedFiles = [];
 
   Future<String?> start() async {
     final info = NetworkInfo();
@@ -29,7 +29,7 @@ class LocalServer {
       return Response.ok(_buildHtmlPage(), headers: {'content-type': 'text/html; charset=utf-8'});
     });
 
-    // API: list files and folders
+    // API: list files and folders (Explorer)
     app.get('/api/list', (Request request) async {
       final params = request.url.queryParameters;
       final relativePath = params['path'] ?? '';
@@ -57,7 +57,6 @@ class LocalServer {
           });
         }
         
-        // Sort: folders first, then alphabetical
         items.sort((a, b) {
           if (a['isDir'] && !b['isDir']) return -1;
           if (!a['isDir'] && b['isDir']) return 1;
@@ -70,7 +69,24 @@ class LocalServer {
       }
     });
 
-    // API: Download file
+    // API: Shared files (History/Picked)
+    app.get('/api/shared', (Request request) {
+      final items = sharedFiles.map((file) {
+        final name = p.basename(file.path);
+        int size = 0;
+        try { size = file.lengthSync(); } catch (_) {}
+        return {
+          'name': name,
+          'isDir': false,
+          'size': size,
+          'path': file.path.replaceFirst(_rootDir, '').replaceFirst('/', ''),
+        };
+      }).toList().reversed.toList(); // Newest first
+
+      return Response.ok(jsonEncode(items), headers: {'content-type': 'application/json'});
+    });
+
+    // API: Download file (can use full path or filename)
     app.get('/api/download', (Request request) async {
       final params = request.url.queryParameters;
       final path = params['path'] ?? '';
@@ -100,16 +116,12 @@ class LocalServer {
         final bodyBytes = await request.read().toList();
         final bytes = bodyBytes.expand((x) => x).toList();
 
-        // Very basic multipart parsing (for simplicity in this local context)
-        // Note: For large files, a streaming multipart parser would be better
         final boundaryBytes = utf8.encode('--$boundary');
         final endBoundaryBytes = utf8.encode('--$boundary--');
         
-        // Find segments
         int start = _findSequence(bytes, utf8.encode('\r\n\r\n'), 0);
         if (start == -1) return Response(400, body: 'Invalid upload data');
         
-        // Find filename in headers
         final headerPart = utf8.decode(bytes.sublist(0, start), allowMalformed: true);
         final filenameMatch = RegExp(r'filename="([^"]+)"').firstMatch(headerPart);
         if (filenameMatch == null) return Response(400, body: 'No filename found');
@@ -120,11 +132,13 @@ class LocalServer {
         if (dataEnd == -1) dataEnd = _findSequence(bytes, endBoundaryBytes, dataStart);
         if (dataEnd == -1) return Response(400, body: 'Invalid upload data structure');
         
-        // Remove trailing CRLF
         final fileData = bytes.sublist(dataStart, dataEnd - 2);
         
         final destFile = File(p.join(fullDestDir, filename));
         await destFile.writeAsBytes(fileData);
+        
+        // Add to shared files so it shows in phone UI
+        addFile(destFile);
 
         return Response.ok(jsonEncode({'success': true, 'message': 'File $filename berhasil diupload!'}));
       } catch (e) {
@@ -152,7 +166,9 @@ class LocalServer {
   }
 
   void addFile(File file) {
-    sharedFiles.add(file);
+    if (!sharedFiles.any((f) => f.path == file.path)) {
+      sharedFiles.add(file);
+    }
   }
 
   Future<void> stop() async {
@@ -166,7 +182,7 @@ class LocalServer {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pubel File Browser</title>
+  <title>Pubel Browser</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -176,40 +192,40 @@ class LocalServer {
     .bg-glow-2 { bottom: -150px; left: -100px; background: #6C63FF; }
     
     .container { max-width: 1000px; margin: 0 auto; padding: 40px 24px; position: relative; z-index: 1; }
-    .header { text-align: center; margin-bottom: 40px; }
-    .logo-box { display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 64px; background: linear-gradient(135deg, #8A56AC, #6C63FF); border-radius: 18px; margin-bottom: 16px; box-shadow: 0 10px 30px rgba(138, 86, 172, 0.4); }
-    .logo-box svg { width: 32px; height: 32px; fill: #fff; }
+    .header { text-align: center; margin-bottom: 30px; }
+    .logo-box { display: inline-flex; align-items: center; justify-content: center; width: 60px; height: 60px; background: linear-gradient(135deg, #8A56AC, #6C63FF); border-radius: 18px; margin-bottom: 12px; box-shadow: 0 10px 30px rgba(138, 86, 172, 0.4); }
+    .logo-box svg { width: 30px; height: 30px; fill: #fff; }
     
-    .breadcrumb { display: flex; align-items: center; gap: 8px; margin-bottom: 24px; padding: 12px 20px; background: rgba(255,255,255,0.05); border-radius: 12px; font-size: 14px; overflow-x: auto; white-space: nowrap; }
-    .breadcrumb-item { cursor: pointer; color: rgba(255,255,255,0.6); transition: color 0.3s; }
-    .breadcrumb-item:hover { color: #8A56AC; }
+    .tabs { display: flex; gap: 10px; margin-bottom: 24px; background: rgba(255,255,255,0.05); padding: 6px; border-radius: 14px; }
+    .tab { flex: 1; text-align: center; padding: 12px; cursor: pointer; border-radius: 10px; transition: 0.3s; font-weight: 500; font-size: 14px; color: rgba(255,255,255,0.5); }
+    .tab.active { background: linear-gradient(135deg, #8A56AC, #6C63FF); color: #fff; }
+    
+    .view-container { display: none; }
+    .view-container.active { display: block; }
+
+    .breadcrumb { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; padding: 12px 20px; background: rgba(255,255,255,0.03); border-radius: 12px; font-size: 13px; overflow-x: auto; }
+    .breadcrumb-item { cursor: pointer; color: rgba(255,255,255,0.4); }
     .breadcrumb-item.active { color: #fff; font-weight: 600; }
     
     .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-    .upload-btn-wrapper { position: relative; overflow: hidden; display: inline-block; }
-    .btn { border: none; color: white; padding: 10px 24px; border-radius: 10px; font-size: 14px; font-weight: 500; cursor: pointer; transition: 0.3s; display: flex; align-items: center; gap: 8px; }
-    .btn-primary { background: linear-gradient(135deg, #8A56AC, #6C63FF); }
-    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(138, 86, 172, 0.4); }
-    .btn input[type=file] { position: absolute; left: 0; top: 0; opacity: 0; cursor: pointer; height: 100%; width: 100%; }
+    .btn { border: none; color: white; padding: 10px 20px; border-radius: 10px; font-size: 13px; font-weight: 500; cursor: pointer; transition: 0.3s; display: flex; align-items: center; gap: 8px; background: linear-gradient(135deg, #8A56AC, #6C63FF); }
+    .btn:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(138, 86, 172, 0.4); }
+    .upload-input { position: absolute; opacity: 0; width: 1px; }
 
-    .file-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 16px; }
-    .item { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 16px; padding: 20px; text-align: center; transition: 0.3s; cursor: pointer; display: flex; flex-direction: column; align-items: center; }
+    .file-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 16px; }
+    .item { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 16px; padding: 18px; text-align: center; transition: 0.3s; cursor: pointer; display: flex; flex-direction: column; align-items: center; }
     .item:hover { background: rgba(138, 86, 172, 0.08); border-color: rgba(138, 86, 172, 0.3); transform: translateY(-4px); }
-    .item-icon { font-size: 40px; margin-bottom: 12px; }
-    .item-name { font-size: 13px; font-weight: 500; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .item-size { font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 4px; }
-    
-    .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(100px); background: #8A56AC; padding: 12px 24px; border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.3); transition: 0.4s; z-index: 1000; }
-    .toast.show { transform: translateX(-50%) translateY(0); }
+    .item-icon { font-size: 36px; margin-bottom: 10px; }
+    .item-name { font-size: 12px; font-weight: 500; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .item-size { font-size: 10px; color: rgba(255,255,255,0.4); margin-top: 4px; }
     
     .loading-overlay { position: fixed; inset: 0; background: rgba(13,13,26,0.8); display: none; align-items: center; justify-content: center; z-index: 999; }
     .loading-overlay.active { display: flex; }
-    .spinner { width: 40px; height: 40px; border: 3px solid rgba(255,255,255,0.1); border-top-color: #8A56AC; border-radius: 50%; animation: spin 1s linear infinite; }
+    .spinner { width: 30px; height: 30px; border: 3px solid rgba(255,255,255,0.1); border-top-color: #8A56AC; border-radius: 50%; animation: spin 1s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
-
-    @media (max-width: 600px) {
-      .file-grid { grid-template-columns: repeat(2, 1fr); }
-    }
+    
+    .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(100px); background: #8A56AC; padding: 10px 20px; border-radius: 10px; font-size: 13px; transition: 0.4s; z-index: 1000; }
+    .toast.show { transform: translateX(-50%) translateY(0); }
   </style>
 </head>
 <body>
@@ -221,22 +237,34 @@ class LocalServer {
       <div class="logo-box">
         <svg viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z"/></svg>
       </div>
-      <h2>Pubel Explorer</h2>
+      <h2>Pubel Browser</h2>
     </div>
 
-    <div class="breadcrumb" id="breadcrumb"></div>
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('explorer')">📂 Explorer (Isi HP)</div>
+      <div class="tab" onclick="switchTab('shared')">📤 Dikirim dari HP</div>
+    </div>
 
-    <div class="toolbar">
-      <div id="itemCount" style="color: rgba(255,255,255,0.5); font-size: 14px;">Memuat...</div>
-      <div class="upload-btn-wrapper">
-        <button class="btn btn-primary">
-          <span>📤 Upload ke Sini</span>
-          <input type="file" id="fileInput" multiple>
+    <!-- Explorer View -->
+    <div id="explorerView" class="view-container active">
+      <div class="breadcrumb" id="breadcrumb"></div>
+      <div class="toolbar">
+        <div id="explorerCount" style="color: rgba(255,255,255,0.4); font-size: 13px;">Memuat...</div>
+        <button class="btn" onclick="document.getElementById('fileInput').click()">
+          📤 Upload ke Folder Ini
+          <input type="file" id="fileInput" class="upload-input" multiple>
         </button>
       </div>
+      <div class="file-grid" id="explorerGrid"></div>
     </div>
 
-    <div class="file-grid" id="fileGrid"></div>
+    <!-- Shared View -->
+    <div id="sharedView" class="view-container">
+      <div class="toolbar">
+        <div id="sharedCount" style="color: rgba(255,255,255,0.4); font-size: 13px;">Daftar file yang baru saja diklik/dikirim dari aplikasi HP</div>
+      </div>
+      <div class="file-grid" id="sharedGrid"></div>
+    </div>
   </div>
 
   <div class="loading-overlay" id="loading"><div class="spinner"></div></div>
@@ -244,88 +272,82 @@ class LocalServer {
 
   <script>
     let currentPath = '';
-    const fileGrid = document.getElementById('fileGrid');
-    const breadcrumb = document.getElementById('breadcrumb');
+    const explorerGrid = document.getElementById('explorerGrid');
+    const sharedGrid = document.getElementById('sharedGrid');
     const loading = document.getElementById('loading');
     const toast = document.getElementById('toast');
-    const itemCount = document.getElementById('itemCount');
 
-    async function loadPath(path) {
-      currentPath = path;
-      loading.classList.add('active');
-      updateBreadcrumb();
+    function switchTab(tab) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.view-container').forEach(v => v.classList.remove('active'));
       
-      try {
-        const res = await fetch('/api/list?path=' + encodeURIComponent(path));
-        const items = await res.json();
-        
-        fileGrid.innerHTML = '';
-        itemCount.textContent = items.length + ' item';
-        
-        items.forEach(item => {
-          const div = document.createElement('div');
-          div.className = 'item';
-          
-          let icon = '📄';
-          if (item.isDir) icon = '📂';
-          else {
-            const ext = item.name.split('.').pop().toLowerCase();
-            if (['jpg','jpeg','png','gif'].includes(ext)) icon = '🖼️';
-            else if (['mp4','mkv','mov'].includes(ext)) icon = '🎬';
-            else if (['mp3','wav','m4a'].includes(ext)) icon = '🎵';
-            else if (ext === 'pdf') icon = '📕';
-          }
-          
-          const sizeStr = item.isDir ? '' : (item.size > 1048576 ? (item.size/1048576).toFixed(1) + ' MB' : (item.size/1024).toFixed(1) + ' KB');
-          
-          div.innerHTML = `
-            <div class="item-icon">\${icon}</div>
-            <div class="item-name" title="\${item.name}">\${item.name}</div>
-            <div class="item-size">\${sizeStr}</div>
-          `;
-          
-          div.onclick = () => {
-            if (item.isDir) loadPath(item.path);
-            else window.location.href = '/api/download?path=' + encodeURIComponent(item.path);
-          };
-          
-          fileGrid.appendChild(div);
-        });
-      } catch (e) {
-        showToast('Gagal memuat folder');
-      } finally {
-        loading.classList.remove('active');
+      if (tab === 'explorer') {
+        document.querySelector('.tab:nth-child(1)').classList.add('active');
+        document.getElementById('explorerView').classList.add('active');
+        loadExplorer(currentPath);
+      } else {
+        document.querySelector('.tab:nth-child(2)').classList.add('active');
+        document.getElementById('sharedView').classList.add('active');
+        loadShared();
       }
     }
 
+    async function loadExplorer(path) {
+      currentPath = path;
+      loading.classList.add('active');
+      updateBreadcrumb();
+      try {
+        const res = await fetch('/api/list?path=' + encodeURIComponent(path));
+        const items = await res.json();
+        explorerGrid.innerHTML = '';
+        document.getElementById('explorerCount').textContent = items.length + ' item';
+        items.forEach(item => explorerGrid.appendChild(createItemEl(item, true)));
+      } catch (e) { showToast('Gagal memuat folder'); }
+      loading.classList.remove('active');
+    }
+
+    async function loadShared() {
+      loading.classList.add('active');
+      try {
+        const res = await fetch('/api/shared');
+        const items = await res.json();
+        sharedGrid.innerHTML = '';
+        items.forEach(item => sharedGrid.appendChild(createItemEl(item, false)));
+      } catch (e) { showToast('Gagal memuat file'); }
+      loading.classList.remove('active');
+    }
+
+    function createItemEl(item, isExplorer) {
+      const div = document.createElement('div');
+      div.className = 'item';
+      let icon = item.isDir ? '📂' : '📄';
+      if (!item.isDir) {
+        const ext = item.name.split('.').pop().toLowerCase();
+        if (['jpg','jpeg','png','gif'].includes(ext)) icon = '🖼️';
+        else if (['mp4','mkv','mov'].includes(ext)) icon = '🎬';
+        else if (['mp3','wav','m4a'].includes(ext)) icon = '🎵';
+      }
+      const sizeStr = item.isDir ? '' : (item.size > 1048576 ? (item.size/1048576).toFixed(1)+' MB' : (item.size/1024).toFixed(1)+' KB');
+      div.innerHTML = `<div class="item-icon">\${icon}</div><div class="item-name">\${item.name}</div><div class="item-size">\${sizeStr}</div>`;
+      div.onclick = () => {
+        if (item.isDir) loadExplorer(item.path);
+        else window.location.href = '/api/download?path=' + encodeURIComponent(item.path);
+      };
+      return div;
+    }
+
     function updateBreadcrumb() {
-      breadcrumb.innerHTML = '';
-      const root = document.createElement('span');
-      root.className = 'breadcrumb-item' + (currentPath === '' ? ' active' : '');
-      root.textContent = 'Penyimpanan Internal';
-      root.onclick = () => loadPath('');
-      breadcrumb.appendChild(root);
-      
-      if (currentPath === '') return;
-      
-      const parts = currentPath.split('/');
+      const b = document.getElementById('breadcrumb');
+      b.innerHTML = '<span class="breadcrumb-item" onclick="loadExplorer(\'\')">Penyimpanan Internal</span>';
+      if (!currentPath) return;
       let pathAcc = '';
-      parts.forEach((part, i) => {
+      currentPath.split('/').forEach(part => {
         if (!part) return;
         pathAcc += (pathAcc ? '/' : '') + part;
-        
-        const sep = document.createElement('span');
-        sep.textContent = ' / ';
-        sep.style.color = 'rgba(255,255,255,0.2)';
-        breadcrumb.appendChild(sep);
-        
-        const item = document.createElement('span');
-        item.className = 'breadcrumb-item' + (i === parts.length - 1 ? ' active' : '');
-        item.textContent = part;
-        const targetPath = pathAcc;
-        item.onclick = () => loadPath(targetPath);
-        breadcrumb.appendChild(item);
+        const currentPathCopy = pathAcc;
+        b.innerHTML += ' / <span class="breadcrumb-item" onclick="loadExplorer(\''+currentPathCopy+'\')">'+part+'</span>';
       });
+      b.querySelector('.breadcrumb-item:last-child').classList.add('active');
     }
 
     function showToast(msg) {
@@ -337,26 +359,18 @@ class LocalServer {
     document.getElementById('fileInput').onchange = async (e) => {
       const files = e.target.files;
       if (!files.length) return;
-      
       loading.classList.add('active');
       for (const file of files) {
         const formData = new FormData();
         formData.append('file', file);
-        try {
-          await fetch('/api/upload?path=' + encodeURIComponent(currentPath), {
-            method: 'POST',
-            body: formData
-          });
-        } catch (e) {
-          showToast('Gagal upload ' + file.name);
-        }
+        await fetch('/api/upload?path=' + encodeURIComponent(currentPath), { method: 'POST', body: formData });
       }
       loading.classList.remove('active');
       showToast('Berhasil upload ' + files.length + ' file');
-      loadPath(currentPath);
+      loadExplorer(currentPath);
     };
 
-    loadPath('');
+    loadExplorer('');
   </script>
 </body>
 </html>
