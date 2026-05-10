@@ -72,26 +72,29 @@ class LocalServer {
         final fullPath = p.join(_rootDir, relativePath);
 
         final directory = Directory(fullPath);
-        if (!await directory.exists()) {
+        if (!directory.existsSync()) {
           return Response.notFound(jsonEncode({'error': 'Folder tidak ditemukan. Pastikan izin akses file sudah diberikan di HP.'}));
         }
 
         final List<Map<String, dynamic>> items = [];
-        await for (final entity in directory.list().handleError((e) {
-          print('Error listing directory: $e');
-        })) {
-          final name = p.basename(entity.path);
-          final isDir = entity is Directory;
-          int size = 0;
-          if (!isDir) {
-            try { size = await (entity as File).length(); } catch (_) {}
+        final entities = directory.listSync();
+        
+        for (final entity in entities) {
+          try {
+            final name = p.basename(entity.path);
+            final stat = entity.statSync();
+            final isDir = stat.type == FileSystemEntityType.directory;
+            
+            items.add({
+              'name': name,
+              'isDir': isDir,
+              'size': isDir ? 0 : stat.size,
+              'path': p.join(relativePath, name),
+            });
+          } catch (e) {
+            // Skip files with permission issues
+            continue;
           }
-          items.add({
-            'name': name,
-            'isDir': isDir,
-            'size': size,
-            'path': p.join(relativePath, name),
-          });
         }
         
         items.sort((a, b) {
@@ -275,9 +278,7 @@ class LocalServer {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Pubel Browser</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Poppins', sans-serif; background: #0D0D1A; color: #fff; min-height: 100vh; overflow-x: hidden; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #0D0D1A; color: #fff; min-height: 100vh; overflow-x: hidden; }
     .bg-glow { position: fixed; width: 400px; height: 400px; border-radius: 50%; filter: blur(120px); opacity: 0.15; pointer-events: none; z-index: 0; }
     .bg-glow-1 { top: -100px; right: -100px; background: #8A56AC; }
     .bg-glow-2 { bottom: -150px; left: -100px; background: #6C63FF; }
