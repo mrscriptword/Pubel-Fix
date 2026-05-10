@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'dart:io';
 import '../theme.dart';
 import '../server/http_server.dart';
 
 class TransferScreen extends StatefulWidget {
   final LocalServer server;
   final String serverAddress;
-  
+
   const TransferScreen({Key? key, required this.server, this.serverAddress = ''}) : super(key: key);
 
   @override
@@ -15,6 +18,7 @@ class TransferScreen extends StatefulWidget {
 class _TransferScreenState extends State<TransferScreen> with TickerProviderStateMixin {
   late AnimationController _radarController;
   late AnimationController _fadeController;
+  bool _isPicking = false;
 
   @override
   void initState() {
@@ -36,164 +40,156 @@ class _TransferScreenState extends State<TransferScreen> with TickerProviderStat
     super.dispose();
   }
 
+  Future<void> _pickFiles() async {
+    if (_isPicking) return;
+    setState(() => _isPicking = true);
+
+    bool hasPermission = false;
+    if (Platform.isAndroid) {
+      if (await Permission.manageExternalStorage.request().isGranted) {
+        hasPermission = true;
+      } else {
+        final photos = await Permission.photos.request();
+        final videos = await Permission.videos.request();
+        final audio  = await Permission.audio.request();
+        final storage = await Permission.storage.request();
+        hasPermission = photos.isGranted || videos.isGranted || audio.isGranted || storage.isGranted;
+      }
+    } else {
+      hasPermission = true;
+    }
+
+    if (!hasPermission) {
+      setState(() => _isPicking = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Izin akses file diperlukan.'),
+            backgroundColor: Colors.red.shade700,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      }
+      return;
+    }
+
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(allowMultiple: true);
+      if (result != null && mounted) {
+        int added = 0;
+        for (final pf in result.files) {
+          if (pf.path != null) {
+            widget.server.addFile(File(pf.path!));
+            added++;
+          }
+        }
+        setState(() {});
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$added file ditambahkan ke daftar kirim'),
+            backgroundColor: AppTheme.primaryColor,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error picking: $e');
+    } finally {
+      if (mounted) setState(() => _isPicking = false);
+    }
+  }
+
+  void _removeFile(int index) {
+    setState(() => widget.server.sharedFiles.removeAt(index));
+  }
+
+  IconData _getFileIcon(String path) {
+    final lower = path.toLowerCase();
+    if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].any((e) => lower.endsWith(e))) return Icons.image_rounded;
+    if (['.mp4', '.mov', '.avi', '.mkv'].any((e) => lower.endsWith(e))) return Icons.movie_rounded;
+    if (['.mp3', '.wav', '.m4a', '.ogg'].any((e) => lower.endsWith(e))) return Icons.music_note_rounded;
+    if (['.pdf'].any((e) => lower.endsWith(e))) return Icons.picture_as_pdf_rounded;
+    if (['.zip', '.rar', '.7z'].any((e) => lower.endsWith(e))) return Icons.folder_zip_rounded;
+    return Icons.insert_drive_file_rounded;
+  }
+
+  Color _getFileColor(String path) {
+    final lower = path.toLowerCase();
+    if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].any((e) => lower.endsWith(e))) return const Color(0xFFFF7043);
+    if (['.mp4', '.mov', '.avi', '.mkv'].any((e) => lower.endsWith(e))) return const Color(0xFF7C4DFF);
+    if (['.mp3', '.wav', '.m4a', '.ogg'].any((e) => lower.endsWith(e))) return const Color(0xFF00E5FF);
+    if (['.pdf'].any((e) => lower.endsWith(e))) return const Color(0xFFFF1744);
+    return AppTheme.primaryColor;
+  }
+
+  String _formatSize(int bytes) {
+    if (bytes > 1073741824) return '${(bytes / 1073741824).toStringAsFixed(1)} GB';
+    if (bytes > 1048576) return '${(bytes / 1048576).toStringAsFixed(1)} MB';
+    return '${(bytes / 1024).toStringAsFixed(0)} KB';
+  }
+
   @override
   Widget build(BuildContext context) {
-    final bool hasFiles = widget.server.sharedFiles.isNotEmpty;
+    final files = widget.server.sharedFiles;
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundColorDark,
       body: FadeTransition(
         opacity: CurvedAnimation(parent: _fadeController, curve: Curves.easeOut),
         child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: hasFiles ? _buildActiveTransfer() : _buildEmptyState(),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildActiveTransfer() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 16),
-        const Text(
-          'Sedang Berbagi',
-          style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 0.5),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          '${widget.server.sharedFiles.length} file tersedia untuk diunduh via PC',
-          style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 14),
-        ),
-        const SizedBox(height: 32),
-        
-        // Animated Radar
-        Center(
-          child: SizedBox(
-            height: 180,
-            width: 180,
-            child: AnimatedBuilder(
-              animation: _radarController,
-              builder: (context, child) {
-                return Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    _buildAnimatedRing(180, _radarController.value),
-                    _buildAnimatedRing(130, (_radarController.value + 0.3) % 1.0),
-                    _buildAnimatedRing(80, (_radarController.value + 0.6) % 1.0),
-                    Container(
-                      width: 56,
-                      height: 56,
-                      decoration: BoxDecoration(
-                        gradient: AppTheme.primaryGradient,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppTheme.primaryColor.withOpacity(0.4),
-                            blurRadius: 20,
-                            spreadRadius: 4,
-                          ),
-                        ],
-                      ),
-                      child: const Icon(Icons.wifi_tethering_rounded, color: Colors.white, size: 28),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ),
-        ),
-        
-        const SizedBox(height: 24),
-
-        // IP Address card
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [AppTheme.primaryColor.withOpacity(0.2), AppTheme.accentColor.withOpacity(0.1)],
-            ),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3)),
-          ),
-          child: Row(
+          child: Column(
             children: [
-              const Icon(Icons.language_rounded, color: AppTheme.primaryLight, size: 20),
-              const SizedBox(width: 12),
+              _buildTopBar(files),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Alamat Akses PC', style: TextStyle(color: Colors.white70, fontSize: 11)),
-                    const SizedBox(height: 2),
-                    Text(
-                      widget.serverAddress.isNotEmpty ? widget.serverAddress : 'Menunggu IP...',
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.greenAccent.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 6, height: 6,
-                      decoration: const BoxDecoration(color: Colors.greenAccent, shape: BoxShape.circle),
-                    ),
-                    const SizedBox(width: 6),
-                    const Text('Aktif', style: TextStyle(color: Colors.greenAccent, fontSize: 11, fontWeight: FontWeight.w600)),
-                  ],
-                ),
+                child: files.isEmpty ? _buildEmptyState() : _buildFileList(files),
               ),
             ],
           ),
         ),
+      ),
+      floatingActionButton: _buildFAB(),
+    );
+  }
 
-        const SizedBox(height: 20),
-        Text(
-          '${widget.server.sharedFiles.length} file • ${_calculateTotalSize()} MB',
-          style: TextStyle(color: Colors.white.withOpacity(0.7), fontWeight: FontWeight.w500),
-        ),
-        const SizedBox(height: 12),
-        
-        Expanded(
-          child: ListView.builder(
-            physics: const BouncingScrollPhysics(),
-            itemCount: widget.server.sharedFiles.length,
-            itemBuilder: (context, index) {
-              final file = widget.server.sharedFiles[index];
-              final name = file.path.split('/').last;
-              return TweenAnimationBuilder<double>(
-                duration: Duration(milliseconds: 400 + (index * 100)),
-                tween: Tween(begin: 0.0, end: 1.0),
-                builder: (context, value, child) {
-                  return Opacity(
-                    opacity: value,
-                    child: Transform.translate(
-                      offset: Offset(0, 20 * (1 - value)),
-                      child: child,
-                    ),
-                  );
-                },
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _buildFileItem(Icons.insert_drive_file_rounded, name, 'Siap diakses'),
-                ),
-              );
-            },
+  Widget _buildTopBar(List<File> files) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
+      child: Row(
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ShaderMask(
+                shaderCallback: (b) => AppTheme.primaryGradient.createShader(b),
+                child: const Text('Kirim File',
+                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: -0.5)),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                files.isEmpty ? 'Belum ada file dipilih' : '${files.length} file siap dikirim',
+                style: TextStyle(color: Colors.white.withOpacity(0.45), fontSize: 13),
+              ),
+            ],
           ),
-        ),
-      ],
+          const Spacer(),
+          if (files.isNotEmpty)
+            GestureDetector(
+              onTap: () => setState(() => widget.server.sharedFiles.clear()),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.red.withOpacity(0.3)),
+                ),
+                child: const Text('Hapus Semua',
+                    style: TextStyle(color: Colors.redAccent, fontSize: 11, fontWeight: FontWeight.w600)),
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -202,125 +198,251 @@ class _TransferScreenState extends State<TransferScreen> with TickerProviderStat
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Animated radar even when empty
+          // Animated radar
           AnimatedBuilder(
             animation: _radarController,
             builder: (context, _) {
               return SizedBox(
-                height: 160,
-                width: 160,
+                height: 180,
+                width: 180,
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
-                    _buildAnimatedRing(160, _radarController.value),
-                    _buildAnimatedRing(110, (_radarController.value + 0.4) % 1.0),
+                    _buildRing(180, _radarController.value),
+                    _buildRing(130, (_radarController.value + 0.33) % 1.0),
+                    _buildRing(80, (_radarController.value + 0.66) % 1.0),
                     Container(
-                      width: 50,
-                      height: 50,
+                      width: 56,
+                      height: 56,
                       decoration: BoxDecoration(
-                        color: AppTheme.surfaceDark,
+                        gradient: AppTheme.primaryGradient,
                         shape: BoxShape.circle,
-                        border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3), width: 2),
+                        boxShadow: [
+                          BoxShadow(color: AppTheme.primaryColor.withOpacity(0.5), blurRadius: 20, spreadRadius: 3)
+                        ],
                       ),
-                      child: Icon(Icons.cloud_off_outlined, color: Colors.grey.withOpacity(0.5), size: 24),
+                      child: const Icon(Icons.send_rounded, color: Colors.white, size: 26),
                     ),
                   ],
                 ),
               );
             },
           ),
-          const SizedBox(height: 32),
-          const Text(
-            'Tidak ada transfer aktif',
-            style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-          ),
+          const SizedBox(height: 28),
+          const Text('Belum ada file dipilih',
+              style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700)),
           const SizedBox(height: 8),
           Text(
-            'Klik "Kirim" di Beranda untuk memulai',
-            style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 14),
+            'Tekan tombol + di bawah untuk memilih file\nyang akan dibagikan ke PC',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 13, height: 1.6),
           ),
-          const SizedBox(height: 24),
-          // Show IP Address even if empty
-          if (widget.serverAddress.contains('http'))
+          if (widget.serverAddress.contains('http')) ...[
+            const SizedBox(height: 32),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               decoration: BoxDecoration(
-                color: AppTheme.surfaceDark,
+                color: AppTheme.cardDark,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppTheme.primaryColor.withOpacity(0.2)),
+                border: Border.all(color: AppTheme.primaryColor.withOpacity(0.25)),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Icon(Icons.wifi_rounded, color: AppTheme.primaryLight, size: 18),
-                  const SizedBox(width: 8),
-                  Text(
-                    widget.serverAddress,
-                    style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13),
-                  ),
+                  const SizedBox(width: 10),
+                  Text(widget.serverAddress,
+                      style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13, fontWeight: FontWeight.w500)),
                 ],
               ),
             ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildAnimatedRing(double size, double animValue) {
+  Widget _buildFileList(List<File> files) {
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
+      physics: const BouncingScrollPhysics(),
+      itemCount: files.length + 1, // +1 for server status card
+      itemBuilder: (context, index) {
+        if (index == 0) return _buildServerStatusCard();
+        final file = files[index - 1];
+        final name = file.path.split('/').last;
+        int fileSize = 0;
+        try { fileSize = file.lengthSync(); } catch (_) {}
+        final color = _getFileColor(file.path);
+
+        return TweenAnimationBuilder<double>(
+          duration: Duration(milliseconds: 350 + ((index - 1) * 80)),
+          tween: Tween(begin: 0.0, end: 1.0),
+          builder: (_, val, child) => Opacity(
+            opacity: val,
+            child: Transform.translate(offset: Offset(0, 18 * (1 - val)), child: child),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppTheme.cardDark,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: color.withOpacity(0.2)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(11),
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Icon(_getFileIcon(file.path), color: color, size: 22),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(name,
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
+                            overflow: TextOverflow.ellipsis),
+                        const SizedBox(height: 3),
+                        Row(
+                          children: [
+                            Container(width: 6, height: 6,
+                                decoration: const BoxDecoration(color: AppTheme.accentGreen, shape: BoxShape.circle)),
+                            const SizedBox(width: 5),
+                            Text(_formatSize(fileSize),
+                                style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 11)),
+                            Text(' · Siap diakses',
+                                style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 11)),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.close_rounded, color: Colors.white.withOpacity(0.3), size: 20),
+                    onPressed: () => _removeFile(index - 1),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildServerStatusCard() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF1A1040), Color(0xFF111327)],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          AnimatedBuilder(
+            animation: _radarController,
+            builder: (_, __) => Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                gradient: AppTheme.primaryGradient,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.primaryColor.withOpacity(0.4 + 0.3 * _radarController.value),
+                    blurRadius: 14,
+                  )
+                ],
+              ),
+              child: const Icon(Icons.wifi_tethering_rounded, color: Colors.white, size: 22),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Server Aktif',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14)),
+                Text(
+                  widget.serverAddress.isNotEmpty ? widget.serverAddress : 'Menunggu IP...',
+                  style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: AppTheme.accentGreen.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              children: [
+                Container(width: 6, height: 6,
+                    decoration: const BoxDecoration(color: AppTheme.accentGreen, shape: BoxShape.circle)),
+                const SizedBox(width: 5),
+                const Text('Aktif', style: TextStyle(color: AppTheme.accentGreen, fontSize: 11, fontWeight: FontWeight.w600)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFAB() {
+    return FloatingActionButton.extended(
+      onPressed: _isPicking ? null : _pickFiles,
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      label: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        decoration: BoxDecoration(
+          gradient: AppTheme.primaryGradient,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(color: AppTheme.primaryColor.withOpacity(0.6), blurRadius: 20, spreadRadius: 2),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _isPicking
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Icon(Icons.add_rounded, color: Colors.white, size: 20),
+            const SizedBox(width: 10),
+            Text(_isPicking ? 'Memilih...' : 'Pilih File',
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRing(double size, double animValue) {
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         border: Border.all(
-          color: AppTheme.primaryColor.withOpacity(0.15 + (0.2 * (1 - animValue))),
+          color: AppTheme.primaryColor.withOpacity(0.1 + (0.25 * (1 - animValue))),
           width: 1.5,
         ),
-      ),
-    );
-  }
-
-  String _calculateTotalSize() {
-    double total = 0;
-    for (var file in widget.server.sharedFiles) {
-      try {
-        total += file.lengthSync() / 1024 / 1024;
-      } catch (_) {}
-    }
-    return total.toStringAsFixed(1);
-  }
-
-  Widget _buildFileItem(IconData icon, String title, String subtitle) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: AppTheme.primaryLight, size: 24),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14)),
-                const SizedBox(height: 2),
-                Text(subtitle, style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 12)),
-              ],
-            ),
-          ),
-          const Icon(Icons.check_circle_rounded, color: Colors.greenAccent, size: 20),
-        ],
       ),
     );
   }

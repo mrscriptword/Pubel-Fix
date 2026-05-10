@@ -14,6 +14,8 @@ void main() {
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.light,
+      systemNavigationBarColor: Color(0xFF111327),
+      systemNavigationBarIconBrightness: Brightness.light,
     ),
   );
   runApp(const PubelApp());
@@ -57,7 +59,99 @@ class _MainNavigationState extends State<MainNavigation> {
       setState(() {
         _serverAddress = address ?? 'Gagal mendapatkan IP';
       });
+      
+      _server.onRequest.listen((request) {
+        _showApprovalDialog(request);
+      });
     }
+  }
+
+  void _showApprovalDialog(ConnectionRequest request) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: AppTheme.cardDark,
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.white.withOpacity(0.1)),
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.laptop_mac_rounded, color: AppTheme.primaryLight, size: 32),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Permintaan Akses',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Perangkat dengan IP berikut mencoba mengakses file Anda:',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 14),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  request.ip,
+                  style: const TextStyle(color: AppTheme.accentColor, fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () {
+                        request.completer.complete(false);
+                        Navigator.pop(context);
+                      },
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        foregroundColor: Colors.white54,
+                      ),
+                      child: const Text('Tolak'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        request.completer.complete(true);
+                        Navigator.pop(context);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: const Text('Izinkan'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -70,20 +164,20 @@ class _MainNavigationState extends State<MainNavigation> {
     final shouldExit = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
+      barrierColor: Colors.black87,
       builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        elevation: 0,
         backgroundColor: Colors.transparent,
         child: Container(
           padding: const EdgeInsets.all(28),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
+            color: AppTheme.cardDark,
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(color: Colors.white.withOpacity(0.08)),
             boxShadow: [
               BoxShadow(
-                color: AppTheme.primaryColor.withOpacity(0.15),
-                blurRadius: 30,
-                offset: const Offset(0, 10),
+                color: AppTheme.primaryColor.withOpacity(0.3),
+                blurRadius: 40,
+                spreadRadius: 2,
               ),
             ],
           ),
@@ -91,23 +185,24 @@ class _MainNavigationState extends State<MainNavigation> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
-                  color: Colors.red.shade50,
+                  color: Colors.red.withOpacity(0.15),
                   shape: BoxShape.circle,
+                  border: Border.all(color: Colors.red.withOpacity(0.3)),
                 ),
-                child: Icon(Icons.exit_to_app_rounded, color: Colors.red.shade400, size: 32),
+                child: const Icon(Icons.power_settings_new_rounded, color: Colors.redAccent, size: 32),
               ),
               const SizedBox(height: 20),
               const Text(
                 'Keluar dari Pubel?',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
               ),
               const SizedBox(height: 8),
               Text(
-                'Server berbagi file akan berhenti dan PC tidak bisa mengakses file Anda.',
+                'Server berbagi file akan berhenti\ndan PC tidak bisa mengakses file Anda.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 14, height: 1.4),
+                style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 13, height: 1.6),
               ),
               const SizedBox(height: 28),
               Row(
@@ -119,10 +214,10 @@ class _MainNavigationState extends State<MainNavigation> {
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
-                          side: BorderSide(color: Colors.grey.shade300),
+                          side: BorderSide(color: Colors.white.withOpacity(0.12)),
                         ),
                       ),
-                      child: const Text('Batal', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w600)),
+                      child: Text('Batal', style: TextStyle(color: Colors.white.withOpacity(0.6), fontWeight: FontWeight.w600)),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -130,13 +225,13 @@ class _MainNavigationState extends State<MainNavigation> {
                     child: ElevatedButton(
                       onPressed: () => Navigator.of(context).pop(true),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red.shade400,
+                        backgroundColor: Colors.red.shade700,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         elevation: 0,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                       ),
-                      child: const Text('Keluar', style: TextStyle(fontWeight: FontWeight.w600)),
+                      child: const Text('Keluar', style: TextStyle(fontWeight: FontWeight.w700)),
                     ),
                   ),
                 ],

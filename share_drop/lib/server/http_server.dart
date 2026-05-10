@@ -1,10 +1,19 @@
 import 'dart:io';
 import 'dart:convert';
+import 'dart:async';
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as io;
 import 'package:shelf_router/shelf_router.dart';
 import 'package:network_info_plus/network_info_plus.dart';
 import 'package:path/path.dart' as p;
+
+class ConnectionRequest {
+  final String ip;
+  final String userAgent;
+  final Completer<bool> completer;
+
+  ConnectionRequest(this.ip, this.userAgent, this.completer);
+}
 
 class LocalServer {
   HttpServer? _server;
@@ -13,6 +22,10 @@ class LocalServer {
   final String _rootDir = '/storage/emulated/0';
 
   final List<File> sharedFiles = [];
+  final Set<String> _allowedIps = {};
+  
+  final _requestController = StreamController<ConnectionRequest>.broadcast();
+  Stream<ConnectionRequest> get onRequest => _requestController.stream;
 
   Future<String?> start() async {
     final info = NetworkInfo();
@@ -21,6 +34,32 @@ class LocalServer {
     if (_ipAddress == null) return null;
 
     final app = Router();
+
+    // Middleware to check authorization
+    Handler _authMiddleware(Handler innerHandler) {
+      return (Request request) async {
+        final clientIp = request.context['shelf.io.connection_info'] as HttpConnectionInfo;
+        final ip = clientIp.remoteAddress.address;
+
+        // Allow static assets or authorization checks if any
+        if (request.url.path == 'api/check-auth') {
+          return Response.ok(jsonEncode({'authorized': _allowedIps.contains(ip)}), headers: {'content-type': 'application/json'});
+        }
+
+        if (!_allowedIps.contains(ip)) {
+          if (request.url.path == '' || request.url.path == '/') {
+            return Response.ok(_buildWaitingPage(ip), headers: {'content-type': 'text/html; charset=utf-8'});
+          }
+          
+          // Trigger approval request if not already pending for this IP
+          _triggerApproval(ip, request.headers['user-agent'] ?? 'Unknown Device');
+          
+          return Response(403, body: jsonEncode({'error': 'Unauthorized. Please approve on phone.'}), headers: {'content-type': 'application/json'});
+        }
+
+        return innerHandler(request);
+      };
+    }
 
     app.get('/', (Request request) {
       return Response.ok(_buildHtmlPage(), headers: {'content-type': 'text/html; charset=utf-8'});
@@ -141,9 +180,25 @@ class LocalServer {
       }
     });
 
-    final pipeline = const Pipeline().addMiddleware(logRequests()).addHandler(app);
+    final pipeline = const Pipeline()
+        .addMiddleware(logRequests())
+        .addMiddleware(_authMiddleware)
+        .addHandler(app);
+        
     _server = await io.serve(pipeline, InternetAddress.anyIPv4, _port);
     return 'http://$_ipAddress:$_port';
+  }
+
+  void _triggerApproval(String ip, String userAgent) {
+    final completer = Completer<bool>();
+    final request = ConnectionRequest(ip, userAgent, completer);
+    _requestController.add(request);
+    
+    completer.future.then((approved) {
+      if (approved) {
+        _allowedIps.add(ip);
+      }
+    });
   }
 
   int _findSequence(List<int> data, List<int> sequence, int start) {
@@ -168,6 +223,47 @@ class LocalServer {
 
   Future<void> stop() async {
     await _server?.close(force: true);
+    _requestController.close();
+  }
+
+  String _buildWaitingPage(String ip) {
+    return '''
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Pubel - Waiting for Approval</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: sans-serif; background: #0D0D1A; color: #fff; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; text-align: center; }
+    .card { background: rgba(255,255,255,0.05); padding: 40px; border-radius: 24px; border: 1px solid rgba(255,255,255,0.1); max-width: 400px; }
+    .loader { border: 4px solid rgba(255,255,255,0.1); border-top: 4px solid #7C4DFF; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 20px; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    h2 { margin-bottom: 10px; }
+    p { color: rgba(255,255,255,0.6); font-size: 14px; }
+  </style>
+  <script>
+    async function checkAuth() {
+      try {
+        const res = await fetch('/api/check-auth');
+        const data = await res.json();
+        if (data.authorized) {
+          window.location.reload();
+        }
+      } catch (e) {}
+      setTimeout(checkAuth, 2000);
+    }
+    checkAuth();
+  </script>
+</head>
+<body>
+  <div class="card">
+    <div class="loader"></div>
+    <h2>Menunggu Izin...</h2>
+    <p>Silakan berikan izin akses pada aplikasi Pubel di HP Anda ($ip)</p>
+  </div>
+</body>
+</html>
+''';
   }
 
   String _buildHtmlPage() {
