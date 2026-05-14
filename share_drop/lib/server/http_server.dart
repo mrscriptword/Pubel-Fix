@@ -22,11 +22,15 @@ class LocalServer {
   final String _rootDir = '/storage/emulated/0';
 
   final List<File> sharedFiles = [];
+  final List<File> receivedFiles = [];
   final Set<String> _allowedIps = {};
   final Set<String> _pendingIps = {};
   
   final _requestController = StreamController<ConnectionRequest>.broadcast();
   Stream<ConnectionRequest> get onRequest => _requestController.stream;
+
+  final _fileReceivedController = StreamController<File>.broadcast();
+  Stream<File> get onFileReceived => _fileReceivedController.stream;
 
   Future<String?> start() async {
     final info = NetworkInfo();
@@ -184,11 +188,20 @@ class LocalServer {
         await destFile.writeAsBytes(fileData);
         
         addFile(destFile);
+        receivedFiles.add(destFile);
+        _fileReceivedController.add(destFile);
 
         return Response.ok(jsonEncode({'success': true, 'message': 'Berhasil!'}));
       } catch (e) {
         return Response.internalServerError(body: jsonEncode({'error': e.toString()}));
       }
+    });
+
+    app.post('/api/logout', (Request request) async {
+      final connInfo = request.context['shelf.io.connection_info'] as HttpConnectionInfo;
+      final ip = connInfo.remoteAddress.address;
+      _allowedIps.remove(ip);
+      return Response.ok(jsonEncode({'success': true}));
     });
 
     final pipeline = const Pipeline()
