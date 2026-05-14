@@ -272,8 +272,7 @@ class _TransferScreenState extends State<TransferScreen> with TickerProviderStat
           const SizedBox(height: 8),
           Text(
             type == 'Kirim' 
-              ? 'Tekan tombol + di bawah untuk memilih file
-yang akan dibagikan ke PC'
+              ? 'Tekan tombol + di bawah untuk memilih file\\nyang akan dibagikan ke PC'
               : 'File yang diupload dari PC akan muncul di sini',
             textAlign: TextAlign.center,
             style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 13, height: 1.6),
