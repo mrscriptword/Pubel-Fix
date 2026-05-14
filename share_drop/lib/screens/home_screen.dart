@@ -38,12 +38,12 @@ class _HomeScreenState extends State<HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildHeader(),
+              _buildServerCard(),
               _buildUploadCard(),
-              _buildStatsRow(),
               _buildSectionHeader('File Terbaru', 'Lihat semua'),
               _buildCategoryChips(),
               _buildRecentFilesList(),
-              const SizedBox(height: 100), // Space for bottom nav
+              const SizedBox(height: 100),
             ],
           ),
         ),
@@ -61,14 +61,14 @@ class _HomeScreenState extends State<HomeScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Selamat pagi, Andi 👋',
+                'Selamat datang',
                 style: TextStyle(color: AppTheme.textSecondary, fontSize: 13, fontWeight: FontWeight.w400),
               ),
               Container(
                 width: 36, height: 36,
                 decoration: const BoxDecoration(color: AppTheme.primaryColor, shape: BoxShape.circle),
                 alignment: Alignment.center,
-                child: const Text('AN', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13)),
+                child: const Text('P', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13)),
               ),
             ],
           ),
@@ -78,6 +78,82 @@ class _HomeScreenState extends State<HomeScreen> {
             style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 28, height: 1.1),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildServerCard() {
+    final hasAddress = widget.serverAddress.isNotEmpty &&
+        widget.serverAddress != 'Menunggu IP...' &&
+        widget.serverAddress != 'Gagal mendapatkan IP';
+    final isLoading = widget.serverAddress == 'Menunggu IP...' ||
+        widget.serverAddress == 'Memulai Server...';
+
+    return GestureDetector(
+      onTap: () {
+        if (hasAddress) {
+          Clipboard.setData(ClipboardData(text: 'http://${widget.serverAddress}:8080'));
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('URL disalin!'), duration: Duration(seconds: 2)),
+          );
+        }
+      },
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: hasAddress ? AppTheme.accentGreen.withOpacity(0.3) : Colors.black.withOpacity(0.06),
+            width: hasAddress ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 38, height: 38,
+              decoration: BoxDecoration(
+                color: hasAddress ? AppTheme.accentGreen.withOpacity(0.1) : Colors.black.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              alignment: Alignment.center,
+              child: isLoading
+                  ? SizedBox(
+                      width: 16, height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.textSecondary),
+                    )
+                  : Icon(
+                      hasAddress ? Icons.wifi_rounded : Icons.wifi_off_rounded,
+                      color: hasAddress ? AppTheme.accentGreen : AppTheme.textSecondary,
+                      size: 18,
+                    ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    hasAddress ? 'Server aktif — buka di browser:' : (isLoading ? 'Memulai server...' : 'Server tidak tersedia'),
+                    style: TextStyle(fontSize: 11, color: AppTheme.textSecondary, fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    hasAddress ? 'http://${widget.serverAddress}:8080' : '—',
+                    style: TextStyle(
+                      fontSize: 14, fontWeight: FontWeight.w700,
+                      color: hasAddress ? AppTheme.textPrimary : AppTheme.textSecondary,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (hasAddress)
+              Icon(Icons.copy_rounded, color: AppTheme.textSecondary, size: 16),
+          ],
+        ),
       ),
     );
   }
@@ -158,15 +234,15 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildStatsRow() {
+    final sentCount = widget.server.sharedFiles.length;
+    final recvCount = widget.server.receivedFiles.length;
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
       child: Row(
         children: [
-          _miniStat(AppTheme.accentGreen.withOpacity(0.1), AppTheme.accentGreen, Icons.arrow_upward_rounded, '24', 'Dikirim'),
+          _miniStat(AppTheme.accentGreen.withOpacity(0.1), AppTheme.accentGreen, Icons.arrow_upward_rounded, '$sentCount', 'Dikirim'),
           const SizedBox(width: 12),
-          _miniStat(AppTheme.accentBlue.withOpacity(0.1), AppTheme.accentBlue, Icons.arrow_downward_rounded, '9', 'Diterima'),
-          const SizedBox(width: 12),
-          _miniStat(AppTheme.accentAmber.withOpacity(0.1), AppTheme.accentAmber, Icons.storage_rounded, '22G', 'Dipakai'),
+          _miniStat(AppTheme.accentBlue.withOpacity(0.1), AppTheme.accentBlue, Icons.arrow_downward_rounded, '$recvCount', 'Diterima'),
         ],
       ),
     );
@@ -256,7 +332,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildRecentFilesList() {
     if (_recentFiles.isEmpty) {
       return Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
         child: Container(
           height: 100,
           alignment: Alignment.center,
