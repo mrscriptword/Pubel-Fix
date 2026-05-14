@@ -387,7 +387,7 @@ class LocalServer {
   <div class="main">
     <div class="topbar">
       <div class="top-icon" title="Connect">🔗</div>
-      <div class="top-icon" title="Power Off" onclick="window.close()">⏻</div>
+      <div class="top-icon" title="Power Off" onclick="logout()">⏻</div>
     </div>
 
     <!-- Home View -->
@@ -474,6 +474,15 @@ class LocalServer {
     const loading = document.getElementById('loading');
     const toast = document.getElementById('toast');
 
+    async function logout() {
+      try {
+        await fetch('/api/logout', { method: 'POST' });
+        window.location.reload();
+      } catch (e) {
+        window.location.reload();
+      }
+    }
+
     function switchView(view) {
       document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
       document.querySelectorAll('.content-area').forEach(el => el.classList.remove('active'));
@@ -492,15 +501,24 @@ class LocalServer {
       updateBreadcrumb();
       try {
         const res = await fetch('/api/list?path=' + encodeURIComponent(path));
-        if (!res.ok) throw new Error('Gagal memuat');
+        if (!res.ok) {
+           const err = await res.json();
+           showToast(err.error || 'Gagal memuat');
+           explorerGrid.innerHTML = '<div class="empty-msg">⚠️ Gagal memuat folder. Pastikan izin akses file sudah diberikan di aplikasi HP.</div>';
+           return;
+        }
         const items = await res.json();
         explorerGrid.innerHTML = '';
         document.getElementById('explorerCount').textContent = items.length + ' item';
-        if (items.length === 0) explorerGrid.innerHTML = '<div class="empty-msg">Folder ini kosong</div>';
-        else items.forEach(item => explorerGrid.appendChild(createItemEl(item)));
+        
+        if (items.length === 0) {
+          explorerGrid.innerHTML = '<div class="empty-msg">Folder ini kosong</div>';
+        } else {
+          items.forEach(item => explorerGrid.appendChild(createItemEl(item)));
+        }
       } catch (e) { 
         showToast('Kesalahan memuat data');
-        explorerGrid.innerHTML = '<div class="empty-msg">⚠️ Terjadi kesalahan. Pastikan server aktif.</div>';
+        explorerGrid.innerHTML = '<div class="empty-msg">⚠️ Terjadi kesalahan. Pastikan folder ada dan server aktif.</div>';
       } finally {
         loading.classList.remove('active');
       }
@@ -512,8 +530,11 @@ class LocalServer {
         const res = await fetch('/api/shared');
         const items = await res.json();
         sharedGrid.innerHTML = '';
-        if (items.length === 0) sharedGrid.innerHTML = '<div class="empty-msg">Belum ada file dipilih di HP</div>';
-        else items.forEach(item => sharedGrid.appendChild(createItemEl(item)));
+        if (items.length === 0) {
+          sharedGrid.innerHTML = '<div class="empty-msg">Belum ada file dipilih di HP</div>';
+        } else {
+          items.forEach(item => sharedGrid.appendChild(createItemEl(item)));
+        }
       } catch (e) { showToast('Gagal memuat data'); }
       finally { loading.classList.remove('active'); }
     }
@@ -539,13 +560,13 @@ class LocalServer {
 
     function updateBreadcrumb() {
       const b = document.getElementById('breadcrumb');
-      b.innerHTML = '<span class="breadcrumb-item" onclick="loadExplorer(\'\')">Internal</span>';
+      b.innerHTML = `<span class="breadcrumb-item" onclick="loadExplorer('')">Internal</span>`;
       if (!currentPath) { b.querySelector('.breadcrumb-item').classList.add('active'); return; }
       let pathAcc = '';
       currentPath.split('/').filter(p=>p).forEach(part => {
         pathAcc += (pathAcc ? '/' : '') + part;
         const currentPathCopy = pathAcc;
-        b.innerHTML += ' <span>/</span> <span class="breadcrumb-item" onclick="loadExplorer(\''+currentPathCopy+'\')">'+part+'</span>';
+        b.innerHTML += ` <span>/</span> <span class="breadcrumb-item" onclick="loadExplorer('\${currentPathCopy}')">\${part}</span>`;
       });
       b.querySelector('.breadcrumb-item:last-child').classList.add('active');
     }

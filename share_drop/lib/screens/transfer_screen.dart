@@ -132,24 +132,74 @@ class _TransferScreenState extends State<TransferScreen> with TickerProviderStat
 
   @override
   Widget build(BuildContext context) {
-    final files = widget.server.sharedFiles;
-
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundColorDark,
-      body: FadeTransition(
-        opacity: CurvedAnimation(parent: _fadeController, curve: Curves.easeOut),
-        child: SafeArea(
-          child: Column(
-            children: [
-              _buildTopBar(files),
-              Expanded(
-                child: files.isEmpty ? _buildEmptyState() : _buildFileList(files),
-              ),
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        backgroundColor: AppTheme.backgroundColorDark,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          title: ShaderMask(
+            shaderCallback: (b) => AppTheme.primaryGradient.createShader(b),
+            child: const Text('Transfer File',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: -0.5)),
+          ),
+          bottom: const TabBar(
+            indicatorColor: AppTheme.primaryColor,
+            labelColor: AppTheme.primaryColor,
+            unselectedLabelColor: Colors.white54,
+            tabs: [
+              Tab(text: 'Kirim (ke PC)', icon: Icon(Icons.upload_rounded)),
+              Tab(text: 'Terima (dari PC)', icon: Icon(Icons.download_rounded)),
             ],
           ),
         ),
+        body: FadeTransition(
+          opacity: CurvedAnimation(parent: _fadeController, curve: Curves.easeOut),
+          child: TabBarView(
+            children: [
+              _buildSendTab(),
+              _buildReceiveTab(),
+            ],
+          ),
+        ),
+        floatingActionButton: _buildFAB(),
       ),
-      floatingActionButton: _buildFAB(),
+    );
+  }
+
+  Widget _buildSendTab() {
+    final files = widget.server.sharedFiles;
+    return Column(
+      children: [
+        _buildTopBar(files),
+        Expanded(
+          child: files.isEmpty ? _buildEmptyState('Kirim') : _buildFileList(files, false),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildReceiveTab() {
+    return StreamBuilder<File>(
+      stream: widget.server.onFileReceived,
+      builder: (context, snapshot) {
+        final files = widget.server.receivedFiles;
+        return Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
+              child: Text(
+                files.isEmpty ? 'Belum ada file diterima' : '${files.length} file diterima',
+                style: TextStyle(color: Colors.white.withOpacity(0.45), fontSize: 13),
+              ),
+            ),
+            Expanded(
+              child: files.isEmpty ? _buildEmptyState('Terima') : _buildFileList(files, true),
+            ),
+          ],
+        );
+      }
     );
   }
 
@@ -158,20 +208,9 @@ class _TransferScreenState extends State<TransferScreen> with TickerProviderStat
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
       child: Row(
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ShaderMask(
-                shaderCallback: (b) => AppTheme.primaryGradient.createShader(b),
-                child: const Text('Kirim File',
-                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: -0.5)),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                files.isEmpty ? 'Belum ada file dipilih' : '${files.length} file siap dikirim',
-                style: TextStyle(color: Colors.white.withOpacity(0.45), fontSize: 13),
-              ),
-            ],
+          Text(
+            files.isEmpty ? 'Pilih file untuk dikirim' : '${files.length} file siap dikirim',
+            style: TextStyle(color: Colors.white.withOpacity(0.45), fontSize: 13),
           ),
           const Spacer(),
           if (files.isNotEmpty)
@@ -193,12 +232,11 @@ class _TransferScreenState extends State<TransferScreen> with TickerProviderStat
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(String type) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Animated radar
           AnimatedBuilder(
             animation: _radarController,
             builder: (context, _) {
@@ -221,7 +259,7 @@ class _TransferScreenState extends State<TransferScreen> with TickerProviderStat
                           BoxShadow(color: AppTheme.primaryColor.withOpacity(0.5), blurRadius: 20, spreadRadius: 3)
                         ],
                       ),
-                      child: const Icon(Icons.send_rounded, color: Colors.white, size: 26),
+                      child: Icon(type == 'Kirim' ? Icons.send_rounded : Icons.download_rounded, color: Colors.white, size: 26),
                     ),
                   ],
                 ),
@@ -229,15 +267,18 @@ class _TransferScreenState extends State<TransferScreen> with TickerProviderStat
             },
           ),
           const SizedBox(height: 28),
-          const Text('Belum ada file dipilih',
-              style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700)),
+          Text(type == 'Kirim' ? 'Belum ada file dipilih' : 'Belum ada file diterima',
+              style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700)),
           const SizedBox(height: 8),
           Text(
-            'Tekan tombol + di bawah untuk memilih file\nyang akan dibagikan ke PC',
+            type == 'Kirim' 
+              ? 'Tekan tombol + di bawah untuk memilih file
+yang akan dibagikan ke PC'
+              : 'File yang diupload dari PC akan muncul di sini',
             textAlign: TextAlign.center,
             style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 13, height: 1.6),
           ),
-          if (widget.serverAddress.contains('http')) ...[
+          if (widget.serverAddress.contains('http') && type == 'Kirim') ...[
             const SizedBox(height: 32),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -262,21 +303,23 @@ class _TransferScreenState extends State<TransferScreen> with TickerProviderStat
     );
   }
 
-  Widget _buildFileList(List<File> files) {
+  Widget _buildFileList(List<File> files, bool isReceive) {
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
       physics: const BouncingScrollPhysics(),
-      itemCount: files.length + 1, // +1 for server status card
+      itemCount: isReceive ? files.length : files.length + 1,
       itemBuilder: (context, index) {
-        if (index == 0) return _buildServerStatusCard();
-        final file = files[index - 1];
+        if (!isReceive && index == 0) return _buildServerStatusCard();
+        
+        final fileIndex = isReceive ? index : index - 1;
+        final file = files[fileIndex];
         final name = file.path.split('/').last;
         int fileSize = 0;
         try { fileSize = file.lengthSync(); } catch (_) {}
         final color = _getFileColor(file.path);
 
         return TweenAnimationBuilder<double>(
-          duration: Duration(milliseconds: 350 + ((index - 1) * 80)),
+          duration: Duration(milliseconds: 350 + (fileIndex * 80)),
           tween: Tween(begin: 0.0, end: 1.0),
           builder: (_, val, child) => Opacity(
             opacity: val,
@@ -317,19 +360,20 @@ class _TransferScreenState extends State<TransferScreen> with TickerProviderStat
                             const SizedBox(width: 5),
                             Text(_formatSize(fileSize),
                                 style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 11)),
-                            Text(' · Siap diakses',
+                            Text(isReceive ? ' · Tersimpan' : ' · Siap diakses',
                                 style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 11)),
                           ],
                         ),
                       ],
                     ),
                   ),
-                  IconButton(
-                    icon: Icon(Icons.close_rounded, color: Colors.white.withOpacity(0.3), size: 20),
-                    onPressed: () => _removeFile(index - 1),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
+                  if (!isReceive)
+                    IconButton(
+                      icon: Icon(Icons.close_rounded, color: Colors.white.withOpacity(0.3), size: 20),
+                      onPressed: () => _removeFile(fileIndex),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
                 ],
               ),
             ),
