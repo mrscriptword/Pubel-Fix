@@ -516,7 +516,7 @@ class LocalServer {
         else if (['mp3','wav','m4a'].includes(ext)) icon = '🎵';
       }
       const sizeStr = item.isDir ? '' : (item.size > 1048576 ? (item.size/1048576).toFixed(1)+' MB' : (item.size/1024).toFixed(1)+' KB');
-      div.innerHTML = `<span class="item-icon">${icon}</span><span class="item-name">${item.name}</span><span class="item-size">${sizeStr}</span>`;
+      div.innerHTML = `<span class="item-icon">\${icon}</span><span class="item-name">\${item.name}</span><span class="item-size">\${sizeStr}</span>`;
       div.onclick = () => {
         if (item.isDir) loadExplorer(item.path);
         else window.location.href = '/api/download?path=' + encodeURIComponent(item.path);
