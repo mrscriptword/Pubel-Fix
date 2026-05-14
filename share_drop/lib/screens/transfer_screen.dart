@@ -1,7 +1,9 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'dart:io';
+import 'package:google_fonts/google_fonts.dart';
 import '../theme.dart';
 import '../server/http_server.dart';
 
@@ -15,29 +17,247 @@ class TransferScreen extends StatefulWidget {
   State<TransferScreen> createState() => _TransferScreenState();
 }
 
-class _TransferScreenState extends State<TransferScreen> with TickerProviderStateMixin {
-  late AnimationController _radarController;
-  late AnimationController _fadeController;
+class _TransferScreenState extends State<TransferScreen> {
   bool _isPicking = false;
 
   @override
-  void initState() {
-    super.initState();
-    _radarController = AnimationController(
-      duration: const Duration(milliseconds: 3000),
-      vsync: this,
-    )..repeat();
-    _fadeController = AnimationController(
-      duration: const Duration(milliseconds: 600),
-      vsync: this,
-    )..forward();
+  Widget build(BuildContext context) {
+    final files = widget.server.sharedFiles;
+
+    return Scaffold(
+      body: SafeArea(
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildHeader(),
+              _buildConnectionCard(),
+              _buildPickArea(),
+              _buildSectionHeader('Antrian Kirim', 'Hapus semua'),
+              _buildQueueList(files),
+              if (files.isNotEmpty) _buildSendButton(files.length),
+              const SizedBox(height: 100),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
-  @override
-  void dispose() {
-    _radarController.dispose();
-    _fadeController.dispose();
-    super.dispose();
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Transfer Langsung', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13, fontWeight: FontWeight.w400)),
+          const SizedBox(height: 4),
+          Text('Kirim File', style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 26)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildConnectionCard() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.black.withOpacity(0.06)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('KONEKSI', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w500, letterSpacing: 0.08)),
+              Row(
+                children: [
+                  Container(width: 7, height: 7, decoration: const BoxDecoration(color: AppTheme.accentGreen, shape: BoxShape.circle)),
+                  const SizedBox(width: 6),
+                  const Text('Terhubung', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.accentGreen)),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              _deviceItem(Icons.smartphone_rounded, 'iPhone Andi', 'Perangkat ini', AppTheme.textPrimary),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Icon(Icons.swap_horiz_rounded, color: AppTheme.textSecondary, size: 20),
+              ),
+              _deviceItem(Icons.laptop_rounded, 'PC Browser', 'Tujuan', AppTheme.accentBlue),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _deviceItem(IconData icon, String name, String sub, Color iconColor) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: AppTheme.backgroundColor, borderRadius: BorderRadius.circular(12)),
+        child: Column(
+          children: [
+            Icon(icon, color: iconColor, size: 24),
+            const SizedBox(height: 4),
+            Text(name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+            Text(sub, style: TextStyle(fontSize: 10, color: AppTheme.textSecondary)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPickArea() {
+    return GestureDetector(
+      onTap: _pickFiles,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(24, 14, 24, 0),
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 32),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: CustomPaint(
+          painter: DashRectPainter(color: Colors.black.withOpacity(0.12), strokeWidth: 2, gap: 4),
+          child: Column(
+            children: [
+              Icon(Icons.add_to_photos_rounded, color: AppTheme.textSecondary.withOpacity(0.4), size: 36),
+              const SizedBox(height: 10),
+              Text('Tambah File', style: GoogleFonts.syne(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
+              const SizedBox(height: 4),
+              Text('Ketuk untuk memilih dari galeri atau penyimpanan', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title, String link) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(title, style: GoogleFonts.syne(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
+          GestureDetector(
+            onTap: () => setState(() => widget.server.sharedFiles.clear()),
+            child: Text(link, style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQueueList(List<File> files) {
+    if (files.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.all(24),
+        child: Text('Antrian kosong', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+      );
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: files.length,
+      itemBuilder: (context, index) {
+        final file = files[index];
+        return _buildQueueItem(file);
+      },
+    );
+  }
+
+  Widget _buildQueueItem(File file) {
+    final name = file.path.split('/').last;
+    final iconData = _getFileIconInfo(file.path);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.black.withOpacity(0.05)))),
+      child: Row(
+        children: [
+          Container(
+            width: 40, height: 40,
+            decoration: BoxDecoration(color: iconData.bgColor, borderRadius: BorderRadius.circular(12)),
+            alignment: Alignment.center,
+            child: Icon(iconData.icon, color: iconData.color, size: 18),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.textPrimary), overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 5),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        height: 3,
+                        decoration: BoxDecoration(color: Colors.black.withOpacity(0.08), borderRadius: BorderRadius.circular(2)),
+                        alignment: Alignment.centerLeft,
+                        child: Container(
+                          width: 100, // Placeholder for 100%
+                          decoration: BoxDecoration(color: AppTheme.primaryColor, borderRadius: BorderRadius.circular(2)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text('Selesai', style: GoogleFonts.syne(fontSize: 11, color: AppTheme.textSecondary, fontWeight: FontWeight.w600)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          const Icon(Icons.check_circle_rounded, color: AppTheme.accentGreen, size: 18),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSendButton(int count) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(color: AppTheme.primaryColor, borderRadius: BorderRadius.circular(18)),
+        alignment: Alignment.center,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.send_rounded, color: Colors.white, size: 18),
+            const SizedBox(width: 8),
+            Text('Kirim Semua ($count file)', style: GoogleFonts.syne(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  _IconInfo _getFileIconInfo(String path) {
+    final lower = path.toLowerCase();
+    if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].any((e) => lower.endsWith(e))) {
+      return _IconInfo(Icons.photo_rounded, const Color(0xFFD84040), const Color(0xFFFDEAEA));
+    }
+    if (['.mp4', '.mov', '.avi', '.mkv'].any((e) => lower.endsWith(e))) {
+      return _IconInfo(Icons.movie_rounded, const Color(0xFF3B82F6), const Color(0xFFEAF0FD));
+    }
+    if (['.pdf', '.zip', '.rar', '.7z'].any((e) => lower.endsWith(e))) {
+      return _IconInfo(Icons.folder_zip_rounded, const Color(0xFF8B5CF6), const Color(0xFFF0EAFD));
+    }
+    return _IconInfo(Icons.insert_drive_file_rounded, AppTheme.textSecondary, const Color(0xFFF0F0F0));
   }
 
   Future<void> _pickFiles() async {
@@ -55,44 +275,22 @@ class _TransferScreenState extends State<TransferScreen> with TickerProviderStat
         final storage = await Permission.storage.request();
         hasPermission = photos.isGranted || videos.isGranted || audio.isGranted || storage.isGranted;
       }
-    } else {
-      hasPermission = true;
-    }
+    } else { hasPermission = true; }
 
     if (!hasPermission) {
       setState(() => _isPicking = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Izin akses file diperlukan.'),
-            backgroundColor: Colors.red.shade700,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-        );
-      }
       return;
     }
 
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(allowMultiple: true);
       if (result != null && mounted) {
-        int added = 0;
         for (final pf in result.files) {
           if (pf.path != null) {
             widget.server.addFile(File(pf.path!));
-            added++;
           }
         }
         setState(() {});
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('$added file ditambahkan ke daftar kirim'),
-            backgroundColor: AppTheme.primaryColor,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-        );
       }
     } catch (e) {
       debugPrint('Error picking: $e');
@@ -100,393 +298,44 @@ class _TransferScreenState extends State<TransferScreen> with TickerProviderStat
       if (mounted) setState(() => _isPicking = false);
     }
   }
+}
 
-  void _removeFile(int index) {
-    setState(() => widget.server.sharedFiles.removeAt(index));
-  }
+class _IconInfo {
+  final IconData icon;
+  final Color color;
+  final Color bgColor;
+  _IconInfo(this.icon, this.color, this.bgColor);
+}
 
-  IconData _getFileIcon(String path) {
-    final lower = path.toLowerCase();
-    if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].any((e) => lower.endsWith(e))) return Icons.image_rounded;
-    if (['.mp4', '.mov', '.avi', '.mkv'].any((e) => lower.endsWith(e))) return Icons.movie_rounded;
-    if (['.mp3', '.wav', '.m4a', '.ogg'].any((e) => lower.endsWith(e))) return Icons.music_note_rounded;
-    if (['.pdf'].any((e) => lower.endsWith(e))) return Icons.picture_as_pdf_rounded;
-    if (['.zip', '.rar', '.7z'].any((e) => lower.endsWith(e))) return Icons.folder_zip_rounded;
-    return Icons.insert_drive_file_rounded;
-  }
+class DashRectPainter extends CustomPainter {
+  final Color color;
+  final double strokeWidth;
+  final double gap;
 
-  Color _getFileColor(String path) {
-    final lower = path.toLowerCase();
-    if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].any((e) => lower.endsWith(e))) return const Color(0xFFFF7043);
-    if (['.mp4', '.mov', '.avi', '.mkv'].any((e) => lower.endsWith(e))) return const Color(0xFF7C4DFF);
-    if (['.mp3', '.wav', '.m4a', '.ogg'].any((e) => lower.endsWith(e))) return const Color(0xFF00E5FF);
-    if (['.pdf'].any((e) => lower.endsWith(e))) return const Color(0xFFFF1744);
-    return AppTheme.primaryColor;
-  }
+  DashRectPainter({this.color = Colors.black, this.strokeWidth = 1.0, this.gap = 5.0});
 
-  String _formatSize(int bytes) {
-    if (bytes > 1073741824) return '${(bytes / 1073741824).toStringAsFixed(1)} GB';
-    if (bytes > 1048576) return '${(bytes / 1048576).toStringAsFixed(1)} MB';
-    return '${(bytes / 1024).toStringAsFixed(0)} KB';
+  @override
+  void paint(Canvas canvas, Size size) {
+    Paint paint = Paint()
+      ..color = color
+      ..strokeWidth = strokeWidth
+      ..style = PaintingStyle.stroke;
+
+    Path path = Path();
+    path.addRRect(RRect.fromLTRBR(0, 0, size.width, size.height, const Radius.circular(20)));
+
+    Path dashPath = Path();
+    double distance = 0.0;
+    for (PathMetric measurePath in path.computeMetrics()) {
+      while (distance < measurePath.length) {
+        dashPath.addPath(measurePath.extractPath(distance, distance + gap), Offset.zero);
+        distance += gap * 2;
+      }
+      distance = 0.0;
+    }
+    canvas.drawPath(dashPath, paint);
   }
 
   @override
-  Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        backgroundColor: AppTheme.backgroundColorDark,
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          title: ShaderMask(
-            shaderCallback: (b) => AppTheme.primaryGradient.createShader(b),
-            child: const Text('Transfer File',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: -0.5)),
-          ),
-          bottom: const TabBar(
-            indicatorColor: AppTheme.primaryColor,
-            labelColor: AppTheme.primaryColor,
-            unselectedLabelColor: Colors.white54,
-            tabs: [
-              Tab(text: 'Kirim (ke PC)', icon: Icon(Icons.upload_rounded)),
-              Tab(text: 'Terima (dari PC)', icon: Icon(Icons.download_rounded)),
-            ],
-          ),
-        ),
-        body: FadeTransition(
-          opacity: CurvedAnimation(parent: _fadeController, curve: Curves.easeOut),
-          child: TabBarView(
-            children: [
-              _buildSendTab(),
-              _buildReceiveTab(),
-            ],
-          ),
-        ),
-        floatingActionButton: _buildFAB(),
-      ),
-    );
-  }
-
-  Widget _buildSendTab() {
-    final files = widget.server.sharedFiles;
-    return Column(
-      children: [
-        _buildTopBar(files),
-        Expanded(
-          child: files.isEmpty ? _buildEmptyState('Kirim') : _buildFileList(files, false),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildReceiveTab() {
-    return StreamBuilder<File>(
-      stream: widget.server.onFileReceived,
-      builder: (context, snapshot) {
-        final files = widget.server.receivedFiles;
-        return Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
-              child: Text(
-                files.isEmpty ? 'Belum ada file diterima' : '${files.length} file diterima',
-                style: TextStyle(color: Colors.white.withOpacity(0.45), fontSize: 13),
-              ),
-            ),
-            Expanded(
-              child: files.isEmpty ? _buildEmptyState('Terima') : _buildFileList(files, true),
-            ),
-          ],
-        );
-      }
-    );
-  }
-
-  Widget _buildTopBar(List<File> files) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
-      child: Row(
-        children: [
-          Text(
-            files.isEmpty ? 'Pilih file untuk dikirim' : '${files.length} file siap dikirim',
-            style: TextStyle(color: Colors.white.withOpacity(0.45), fontSize: 13),
-          ),
-          const Spacer(),
-          if (files.isNotEmpty)
-            GestureDetector(
-              onTap: () => setState(() => widget.server.sharedFiles.clear()),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.red.withOpacity(0.3)),
-                ),
-                child: const Text('Hapus Semua',
-                    style: TextStyle(color: Colors.redAccent, fontSize: 11, fontWeight: FontWeight.w600)),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmptyState(String type) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          AnimatedBuilder(
-            animation: _radarController,
-            builder: (context, _) {
-              return SizedBox(
-                height: 180,
-                width: 180,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    _buildRing(180, _radarController.value),
-                    _buildRing(130, (_radarController.value + 0.33) % 1.0),
-                    _buildRing(80, (_radarController.value + 0.66) % 1.0),
-                    Container(
-                      width: 56,
-                      height: 56,
-                      decoration: BoxDecoration(
-                        gradient: AppTheme.primaryGradient,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(color: AppTheme.primaryColor.withOpacity(0.5), blurRadius: 20, spreadRadius: 3)
-                        ],
-                      ),
-                      child: Icon(type == 'Kirim' ? Icons.send_rounded : Icons.download_rounded, color: Colors.white, size: 26),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: 28),
-          Text(type == 'Kirim' ? 'Belum ada file dipilih' : 'Belum ada file diterima',
-              style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 8),
-          Text(
-            type == 'Kirim' 
-              ? 'Tekan tombol + di bawah untuk memilih file\\nyang akan dibagikan ke PC'
-              : 'File yang diupload dari PC akan muncul di sini',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 13, height: 1.6),
-          ),
-          if (widget.serverAddress.contains('http') && type == 'Kirim') ...[
-            const SizedBox(height: 32),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              decoration: BoxDecoration(
-                color: AppTheme.cardDark,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppTheme.primaryColor.withOpacity(0.25)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.wifi_rounded, color: AppTheme.primaryLight, size: 18),
-                  const SizedBox(width: 10),
-                  Text(widget.serverAddress,
-                      style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13, fontWeight: FontWeight.w500)),
-                ],
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFileList(List<File> files, bool isReceive) {
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
-      physics: const BouncingScrollPhysics(),
-      itemCount: isReceive ? files.length : files.length + 1,
-      itemBuilder: (context, index) {
-        if (!isReceive && index == 0) return _buildServerStatusCard();
-        
-        final fileIndex = isReceive ? index : index - 1;
-        final file = files[fileIndex];
-        final name = file.path.split('/').last;
-        int fileSize = 0;
-        try { fileSize = file.lengthSync(); } catch (_) {}
-        final color = _getFileColor(file.path);
-
-        return TweenAnimationBuilder<double>(
-          duration: Duration(milliseconds: 350 + (fileIndex * 80)),
-          tween: Tween(begin: 0.0, end: 1.0),
-          builder: (_, val, child) => Opacity(
-            opacity: val,
-            child: Transform.translate(offset: Offset(0, 18 * (1 - val)), child: child),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: AppTheme.cardDark,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: color.withOpacity(0.2)),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(11),
-                    decoration: BoxDecoration(
-                      color: color.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Icon(_getFileIcon(file.path), color: color, size: 22),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(name,
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
-                            overflow: TextOverflow.ellipsis),
-                        const SizedBox(height: 3),
-                        Row(
-                          children: [
-                            Container(width: 6, height: 6,
-                                decoration: const BoxDecoration(color: AppTheme.accentGreen, shape: BoxShape.circle)),
-                            const SizedBox(width: 5),
-                            Text(_formatSize(fileSize),
-                                style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 11)),
-                            Text(isReceive ? ' · Tersimpan' : ' · Siap diakses',
-                                style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 11)),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (!isReceive)
-                    IconButton(
-                      icon: Icon(Icons.close_rounded, color: Colors.white.withOpacity(0.3), size: 20),
-                      onPressed: () => _removeFile(fileIndex),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildServerStatusCard() {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 20),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1A1040), Color(0xFF111327)],
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3)),
-      ),
-      child: Row(
-        children: [
-          AnimatedBuilder(
-            animation: _radarController,
-            builder: (_, __) => Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                gradient: AppTheme.primaryGradient,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: AppTheme.primaryColor.withOpacity(0.4 + 0.3 * _radarController.value),
-                    blurRadius: 14,
-                  )
-                ],
-              ),
-              child: const Icon(Icons.wifi_tethering_rounded, color: Colors.white, size: 22),
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Server Aktif',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14)),
-                Text(
-                  widget.serverAddress.isNotEmpty ? widget.serverAddress : 'Menunggu IP...',
-                  style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 11),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: AppTheme.accentGreen.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Row(
-              children: [
-                Container(width: 6, height: 6,
-                    decoration: const BoxDecoration(color: AppTheme.accentGreen, shape: BoxShape.circle)),
-                const SizedBox(width: 5),
-                const Text('Aktif', style: TextStyle(color: AppTheme.accentGreen, fontSize: 11, fontWeight: FontWeight.w600)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFAB() {
-    return FloatingActionButton.extended(
-      onPressed: _isPicking ? null : _pickFiles,
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      label: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-        decoration: BoxDecoration(
-          gradient: AppTheme.primaryGradient,
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: [
-            BoxShadow(color: AppTheme.primaryColor.withOpacity(0.6), blurRadius: 20, spreadRadius: 2),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _isPicking
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : const Icon(Icons.add_rounded, color: Colors.white, size: 20),
-            const SizedBox(width: 10),
-            Text(_isPicking ? 'Memilih...' : 'Pilih File',
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRing(double size, double animValue) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(
-          color: AppTheme.primaryColor.withOpacity(0.1 + (0.25 * (1 - animValue))),
-          width: 1.5,
-        ),
-      ),
-    );
-  }
+  bool shouldRepaint(DashRectPainter oldDelegate) => false;
 }

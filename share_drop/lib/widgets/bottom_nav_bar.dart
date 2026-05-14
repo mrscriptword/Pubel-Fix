@@ -15,27 +15,28 @@ class CustomBottomNavBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: AppTheme.surfaceDark,
+        color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: AppTheme.primaryColor.withOpacity(0.25),
-            blurRadius: 30,
-            offset: const Offset(0, -8),
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 20,
+            offset: const Offset(0, -5),
           ),
         ],
         border: Border(
-          top: BorderSide(color: Colors.white.withOpacity(0.06), width: 1),
+          top: BorderSide(color: Colors.black.withOpacity(0.03), width: 1),
         ),
       ),
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _buildNavItem(Icons.home_outlined, Icons.home_rounded, 'Beranda', 0),
-              _buildNavItem(Icons.send_outlined, Icons.send_rounded, 'Kirim', 1),
+              _buildNavItem(Icons.swap_horiz_rounded, Icons.swap_horiz_rounded, 'Kirim', 1),
               _buildNavItem(Icons.folder_outlined, Icons.folder_rounded, 'File', 2),
+              _buildNavItem(Icons.history_rounded, Icons.history_rounded, 'Riwayat', 3),
             ],
           ),
         ),
@@ -49,58 +50,38 @@ class CustomBottomNavBar extends StatelessWidget {
       onTap: () => onTap(index),
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 350),
-        curve: Curves.easeOutBack,
+        duration: const Duration(milliseconds: 300),
         padding: EdgeInsets.symmetric(
-          horizontal: isActive ? 22 : 16,
-          vertical: 11,
+          horizontal: isActive ? 18 : 12,
+          vertical: 10,
         ),
         decoration: BoxDecoration(
-          gradient: isActive ? AppTheme.primaryGradient : null,
-          color: isActive ? null : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: isActive
-              ? [
-                  BoxShadow(
-                    color: AppTheme.primaryColor.withOpacity(0.5),
-                    blurRadius: 16,
-                    spreadRadius: -2,
-                    offset: const Offset(0, 4),
-                  )
-                ]
-              : [],
+          color: isActive ? AppTheme.primaryColor.withOpacity(0.1) : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               isActive ? activeIcon : icon,
-              color: isActive ? Colors.white : Colors.white.withOpacity(0.4),
-              size: 22,
+              color: isActive ? AppTheme.primaryColor : AppTheme.textSecondary,
+              size: 24,
             ),
-            AnimatedSize(
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOutCubic,
-              child: isActive
-                  ? Row(
-                      children: [
-                        const SizedBox(width: 8),
-                        Text(
-                          label,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 13,
-                            letterSpacing: 0.3,
-                          ),
-                        ),
-                      ],
-                    )
-                  : const SizedBox.shrink(),
-            ),
+            if (isActive) ...[
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: GoogleFonts.syne(
+                  color: AppTheme.primaryColor,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+              ),
+            ],
           ],
         ),
       ),
     );
   }
 }
+import 'package:google_fonts/google_fonts.dart';

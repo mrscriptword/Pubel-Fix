@@ -5,6 +5,7 @@ import 'screens/splash_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/transfer_screen.dart';
 import 'screens/file_manager_screen.dart';
+import 'screens/activity_screen.dart';
 import 'widgets/bottom_nav_bar.dart';
 import 'server/http_server.dart';
 
@@ -29,6 +30,8 @@ class PubelApp extends StatelessWidget {
     return MaterialApp(
       title: 'Pubel',
       theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: ThemeMode.system, // Follow system settings
       home: SplashScreen(nextScreen: const MainNavigation()),
       debugShowCheckedModeBanner: false,
     );
@@ -287,6 +290,8 @@ class _MainNavigationState extends State<MainNavigation> {
         return TransferScreen(key: const ValueKey(1), server: _server, serverAddress: _serverAddress);
       case 2:
         return FileManagerScreen(key: const ValueKey(2), server: _server);
+      case 3:
+        return const ActivityScreen(key: ValueKey(3));
       default:
         return HomeScreen(key: const ValueKey(0), server: _server, serverAddress: _serverAddress);
     }
