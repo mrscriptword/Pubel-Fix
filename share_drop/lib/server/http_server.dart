@@ -290,95 +290,181 @@ class LocalServer {
   String _buildHtmlPage() {
     return '''
 <!DOCTYPE html>
-<html lang="id">
+<html lang="id" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Pubel Web</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --bg-color: #F8FAFC;
+      --text-primary: #1E293B;
+      --text-secondary: #64748B;
+      --card-bg: rgba(255, 255, 255, 0.7);
+      --sidebar-bg: rgba(255, 255, 255, 0.85);
+      --border-color: rgba(226, 232, 240, 0.8);
+      --primary: #3B82F6;
+      --primary-hover: #2563EB;
+      --phone-bg: #0F172A;
+      --phone-screen: #F1F5F9;
+      --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+      --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+      --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+    }
+
+    [data-theme="dark"] {
+      --bg-color: #0B1120;
+      --text-primary: #F8FAFC;
+      --text-secondary: #94A3B8;
+      --card-bg: rgba(30, 41, 59, 0.5);
+      --sidebar-bg: rgba(15, 23, 42, 0.85);
+      --border-color: rgba(51, 65, 85, 0.6);
+      --primary: #3B82F6;
+      --primary-hover: #60A5FA;
+      --phone-bg: #000;
+      --phone-screen: #1E293B;
+      --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.3);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+      --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+      --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+    }
+
     * { margin: 0; padding: 0; box-sizing: border-box; outline: none; }
-    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #F5F6F8; color: #333; min-height: 100vh; display: flex; }
+    body { font-family: 'Outfit', system-ui, sans-serif; background: var(--bg-color); color: var(--text-primary); min-height: 100vh; display: flex; transition: background 0.4s ease; overflow-x: hidden; }
     
+    /* Background Blobs */
+    .bg-blob { position: fixed; border-radius: 50%; filter: blur(100px); z-index: -1; opacity: 0.4; animation: float 12s ease-in-out infinite; transition: opacity 0.4s ease; }
+    .blob-1 { width: 50vw; height: 50vw; background: rgba(59, 130, 246, 0.4); top: -20vh; left: -10vw; }
+    .blob-2 { width: 40vw; height: 40vw; background: rgba(16, 185, 129, 0.3); bottom: -10vh; right: -5vw; animation-delay: -6s; }
+    [data-theme="dark"] .bg-blob { opacity: 0.15; }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0) scale(1); }
+      50% { transform: translateY(-40px) scale(1.05); }
+    }
+
     /* Sidebar */
-    .sidebar { width: 80px; background: #fff; border-right: 1px solid #E5E7EB; display: flex; flex-direction: column; align-items: center; padding: 20px 0; z-index: 10; }
-    .logo { width: 40px; height: 40px; background: #FF9800; border-radius: 50%; margin-bottom: 30px; display: flex; justify-content: center; align-items: center; color: white; font-weight: bold; font-size: 24px; text-decoration: none;}
-    .nav-item { width: 50px; height: 50px; display: flex; justify-content: center; align-items: center; border-radius: 12px; margin-bottom: 10px; cursor: pointer; color: #9CA3AF; font-size: 24px; transition: 0.2s; }
-    .nav-item:hover { background: #F3F4F6; color: #4CAF50; }
-    .nav-item.active { background: #4CAF50; color: #fff; }
+    .sidebar { width: 80px; background: var(--sidebar-bg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; align-items: center; padding: 24px 0; z-index: 10; transition: all 0.3s ease; }
+    .logo { width: 44px; height: 44px; background: linear-gradient(135deg, #3B82F6, #8B5CF6); border-radius: 14px; margin-bottom: 40px; display: flex; justify-content: center; align-items: center; color: white; font-weight: 700; font-size: 24px; box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4); text-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+    .nav-item { width: 48px; height: 48px; display: flex; justify-content: center; align-items: center; border-radius: 14px; margin-bottom: 12px; cursor: pointer; color: var(--text-secondary); font-size: 22px; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); position: relative; }
+    .nav-item:hover { background: var(--card-bg); color: var(--primary); transform: translateY(-2px); box-shadow: var(--shadow-sm); }
+    .nav-item.active { background: var(--primary); color: #fff; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3); }
     
     /* Main Content */
-    .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; z-index: 1; }
     
     /* Topbar */
-    .topbar { height: 60px; background: #fff; border-bottom: 1px solid #E5E7EB; display: flex; justify-content: flex-end; align-items: center; padding: 0 24px; gap: 16px; }
-    .top-icon { color: #9CA3AF; font-size: 20px; cursor: pointer; transition: 0.2s; }
-    .top-icon:hover { color: #333; }
+    .topbar { height: 70px; background: transparent; display: flex; justify-content: flex-end; align-items: center; padding: 0 32px; gap: 16px; }
+    .top-icon { color: var(--text-secondary); width: 40px; height: 40px; display: flex; justify-content: center; align-items: center; border-radius: 50%; background: var(--card-bg); backdrop-filter: blur(10px); border: 1px solid var(--border-color); font-size: 18px; cursor: pointer; transition: all 0.3s ease; box-shadow: var(--shadow-sm); }
+    .top-icon:hover { color: var(--primary); transform: translateY(-2px); box-shadow: var(--shadow-md); border-color: var(--primary); }
     
     /* Content Area */
-    .content-area { flex: 1; padding: 30px; overflow-y: auto; display: none; }
-    .content-area.active { display: block; }
+    .content-area { flex: 1; padding: 10px 40px 40px; overflow-y: auto; display: none; opacity: 0; }
+    .content-area.active { display: block; animation: slideUpFade 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
     
+    @keyframes slideUpFade {
+      from { opacity: 0; transform: translateY(30px) scale(0.98); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
     /* Home View */
-    .home-layout { display: flex; gap: 40px; align-items: flex-start; max-width: 1000px; margin: 0 auto; }
+    .home-layout { display: flex; gap: 60px; align-items: center; max-width: 1100px; margin: 20px auto 0; }
     
     /* Phone Mockup */
-    .phone-mockup { width: 260px; height: 540px; background: #111; border-radius: 30px; padding: 12px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); position: relative; flex-shrink: 0; }
-    .phone-screen { width: 100%; height: 100%; background: #F3F4F6; border-radius: 20px; display: flex; flex-direction: column; justify-content: center; align-items: center; overflow: hidden; position: relative; border: 1px solid #E5E7EB;}
-    .drop-zone { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: pointer; transition: 0.2s; background: #fff; }
-    .drop-zone:hover, .drop-zone.dragover { background: #E8F5E9; }
-    .drop-icon { font-size: 48px; color: #BDBDBD; margin-bottom: 16px; pointer-events: none; }
-    .drop-text { color: #9E9E9E; font-size: 14px; pointer-events: none; }
+    .phone-mockup { width: 280px; height: 580px; background: var(--phone-bg); border-radius: 40px; padding: 12px; box-shadow: var(--shadow-lg), 0 0 0 1px rgba(255,255,255,0.1) inset; position: relative; flex-shrink: 0; transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+    .phone-mockup:hover { transform: translateY(-10px) rotate(-2deg); }
+    .phone-mockup::before { content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 120px; height: 24px; background: var(--phone-bg); border-bottom-left-radius: 16px; border-bottom-right-radius: 16px; z-index: 2; }
+    .phone-screen { width: 100%; height: 100%; background: var(--phone-screen); border-radius: 28px; display: flex; flex-direction: column; justify-content: center; align-items: center; overflow: hidden; position: relative; border: 1px solid rgba(0,0,0,0.1); transition: background 0.3s ease; }
+    .drop-zone { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: pointer; transition: all 0.3s ease; background: transparent; }
+    .drop-zone:hover, .drop-zone.dragover { background: rgba(59, 130, 246, 0.08); }
+    .drop-icon { font-size: 56px; margin-bottom: 20px; pointer-events: none; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1)); transition: transform 0.3s ease; }
+    .drop-zone:hover .drop-icon { transform: scale(1.1) translateY(-5px); }
+    .drop-text { color: var(--text-secondary); font-size: 15px; font-weight: 500; pointer-events: none; }
     
     /* Categories */
     .categories-section { flex: 1; }
-    .device-info { display: flex; align-items: center; gap: 12px; margin-bottom: 40px; }
-    .device-name { font-size: 24px; font-weight: 600; color: #333; }
-    .device-os { font-size: 14px; color: #9CA3AF; }
+    .device-info { margin-bottom: 40px; animation: fadeRight 0.6s ease forwards; opacity: 0; }
+    .device-name { font-size: 36px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.5px; margin-bottom: 4px; }
+    .device-os { font-size: 16px; color: var(--text-secondary); font-weight: 500; display: flex; align-items: center; gap: 8px; }
+    .device-os::before { content: ''; display: inline-block; width: 8px; height: 8px; background: #10B981; border-radius: 50%; box-shadow: 0 0 10px #10B981; }
     
-    .category-grid { display: flex; flex-wrap: wrap; gap: 30px; margin-bottom: 50px; }
-    .category-item { display: flex; flex-direction: column; align-items: center; gap: 12px; cursor: pointer; width: 80px; transition: 0.2s; }
-    .category-item:hover { transform: translateY(-5px); }
-    .cat-icon-box { width: 70px; height: 70px; border-radius: 50%; border: 1px solid #E5E7EB; display: flex; justify-content: center; align-items: center; font-size: 28px; background: #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.02); }
-    .cat-name { font-size: 13px; color: #6B7280; font-weight: 500; }
+    @keyframes fadeRight {
+      from { opacity: 0; transform: translateX(-20px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    .category-grid { display: flex; flex-wrap: wrap; gap: 24px; margin-bottom: 50px; }
+    .category-item { display: flex; flex-direction: column; align-items: center; gap: 12px; cursor: pointer; width: 90px; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); opacity: 0; animation: scaleUp 0.5s forwards; }
+    .category-item:nth-child(1) { animation-delay: 0.1s; }
+    .category-item:nth-child(2) { animation-delay: 0.2s; }
+    .category-item:nth-child(3) { animation-delay: 0.3s; }
+    .category-item:nth-child(4) { animation-delay: 0.4s; }
+    .category-item:nth-child(5) { animation-delay: 0.5s; }
     
-    .storage-bar-container { background: #E5E7EB; height: 16px; border-radius: 8px; overflow: hidden; position: relative; }
-    .storage-bar-fill { background: #FF9800; height: 100%; width: 45%; }
-    .storage-text { position: absolute; width: 100%; text-align: center; top: 0; left: 0; line-height: 16px; font-size: 10px; color: #fff; font-weight: 600; text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+    @keyframes scaleUp {
+      from { opacity: 0; transform: scale(0.8) translateY(20px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    .category-item:hover { transform: translateY(-8px) scale(1.05); }
+    .cat-icon-box { width: 72px; height: 72px; border-radius: 22px; border: 1px solid var(--border-color); display: flex; justify-content: center; align-items: center; font-size: 32px; background: var(--card-bg); backdrop-filter: blur(10px); box-shadow: var(--glass-shadow); transition: all 0.3s ease; }
+    .category-item:hover .cat-icon-box { box-shadow: var(--shadow-md); border-color: currentColor; }
+    .cat-name { font-size: 14px; color: var(--text-secondary); font-weight: 600; }
+    
+    /* Storage Bar */
+    .storage-container { opacity: 0; animation: fadeUp 0.6s 0.6s forwards; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    .storage-header { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 14px; font-weight: 600; color: var(--text-secondary); }
+    .storage-bar-wrapper { background: var(--card-bg); border: 1px solid var(--border-color); height: 24px; border-radius: 12px; overflow: hidden; position: relative; box-shadow: inset 0 2px 4px rgba(0,0,0,0.05); }
+    .storage-bar-fill { background: linear-gradient(90deg, #F59E0B, #EF4444); height: 100%; width: 45%; border-radius: 12px; position: relative; overflow: hidden; }
+    .storage-bar-fill::after { content: ''; position: absolute; top: 0; left: 0; bottom: 0; right: 0; background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.3) 50%, rgba(255,255,255,0) 100%); animation: shimmer 2s infinite; }
+    @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
 
     /* Explorer View */
-    .breadcrumb { display: flex; align-items: center; gap: 8px; margin-bottom: 24px; padding: 12px 16px; background: #fff; border-radius: 12px; font-size: 14px; overflow-x: auto; white-space: nowrap; box-shadow: 0 2px 10px rgba(0,0,0,0.02); border: 1px solid #F3F4F6; }
-    .breadcrumb-item { cursor: pointer; color: #6B7280; font-weight: 500; }
-    .breadcrumb-item:hover { color: #4CAF50; }
-    .breadcrumb-item.active { color: #333; font-weight: 600; cursor: default; }
+    .breadcrumb { display: flex; align-items: center; gap: 10px; margin-bottom: 30px; padding: 16px 24px; background: var(--card-bg); backdrop-filter: blur(10px); border-radius: 16px; font-size: 15px; overflow-x: auto; white-space: nowrap; box-shadow: var(--shadow-sm); border: 1px solid var(--border-color); }
+    .breadcrumb-item { cursor: pointer; color: var(--text-secondary); font-weight: 500; transition: color 0.2s; }
+    .breadcrumb-item:hover { color: var(--primary); }
+    .breadcrumb-item.active { color: var(--text-primary); font-weight: 700; cursor: default; }
+    .breadcrumb-separator { opacity: 0.4; color: var(--text-secondary); font-size: 12px; }
     
-    .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-    .btn { border: none; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 8px; background: #4CAF50; color: white; }
-    .btn:hover { background: #43A047; }
-    .btn-secondary { background: #fff; color: #333; border: 1px solid #E5E7EB; }
-    .btn-secondary:hover { background: #F9FAFB; }
+    .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+    .btn { border: none; padding: 12px 24px; border-radius: 12px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; display: flex; align-items: center; gap: 8px; background: var(--primary); color: white; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3); font-family: 'Outfit', sans-serif; }
+    .btn:hover { background: var(--primary-hover); transform: translateY(-2px); box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4); }
+    .btn:active { transform: translateY(0); }
+    .btn-secondary { background: var(--card-bg); color: var(--text-primary); border: 1px solid var(--border-color); box-shadow: var(--shadow-sm); }
+    .btn-secondary:hover { background: var(--bg-color); border-color: var(--primary); box-shadow: var(--shadow-md); color: var(--primary); }
 
-    .file-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 16px; }
-    .item { background: #fff; border: 1px solid #E5E7EB; border-radius: 16px; padding: 20px 16px; text-align: center; transition: 0.2s; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.02); }
-    .item:hover { border-color: #4CAF50; box-shadow: 0 8px 20px rgba(76, 175, 80, 0.1); transform: translateY(-2px); }
-    .item-icon { font-size: 36px; margin-bottom: 12px; display: block; }
-    .item-name { font-size: 12px; font-weight: 500; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; color: #333; }
-    .item-size { font-size: 11px; color: #9CA3AF; margin-top: 6px; display: block; }
+    .file-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 20px; }
+    .item { background: var(--card-bg); backdrop-filter: blur(10px); border: 1px solid var(--border-color); border-radius: 20px; padding: 24px 16px; text-align: center; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); cursor: pointer; box-shadow: var(--shadow-sm); position: relative; overflow: hidden; }
+    .item::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px; background: var(--primary); opacity: 0; transition: 0.3s; }
+    .item:hover { border-color: var(--primary); box-shadow: var(--shadow-lg); transform: translateY(-6px) scale(1.02); }
+    .item:hover::before { opacity: 1; }
+    .item-icon { font-size: 42px; margin-bottom: 16px; display: block; transition: transform 0.3s ease; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.05)); }
+    .item:hover .item-icon { transform: scale(1.1); }
+    .item-name { font-size: 14px; font-weight: 600; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; color: var(--text-primary); margin-bottom: 4px; }
+    .item-size { font-size: 12px; color: var(--text-secondary); display: block; font-weight: 500; }
     
     /* Utilities */
-    .loading-overlay { position: fixed; inset: 0; background: rgba(255,255,255,0.8); display: none; align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(4px); }
-    .loading-overlay.active { display: flex; }
-    .spinner { width: 36px; height: 36px; border: 3px solid #E5E7EB; border-top-color: #4CAF50; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    .loading-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; z-index: 100; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
+    .loading-overlay.active { opacity: 1; pointer-events: all; }
+    .spinner { width: 44px; height: 44px; border: 4px solid rgba(255,255,255,0.2); border-top-color: #fff; border-radius: 50%; animation: spin 0.8s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
     
-    .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(100px); background: #333; color: white; padding: 12px 24px; border-radius: 8px; font-size: 14px; transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 200; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+    .toast { position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%) translateY(100px); background: #1E293B; color: white; padding: 14px 28px; border-radius: 100px; font-size: 15px; font-weight: 500; transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 200; box-shadow: 0 10px 40px rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; gap: 10px; }
     .toast.show { transform: translateX(-50%) translateY(0); }
-    .empty-msg { text-align: center; padding: 80px 0; color: #9CA3AF; font-size: 14px; width: 100%; grid-column: 1 / -1; }
+    .empty-msg { text-align: center; padding: 100px 0; color: var(--text-secondary); font-size: 16px; font-weight: 500; width: 100%; grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; gap: 16px; }
+    .empty-msg-icon { font-size: 48px; opacity: 0.5; }
   </style>
 </head>
 <body>
   
+  <div class="bg-blob blob-1"></div>
+  <div class="bg-blob blob-2"></div>
+
   <div class="sidebar">
-    <div class="logo">X</div>
+    <div class="logo">P</div>
     <div class="nav-item active" id="nav-home" onclick="switchView('home')" title="Home">🏠</div>
     <div class="nav-item" id="nav-explorer" onclick="switchView('explorer'); loadExplorer('');" title="Explorer">📁</div>
     <div class="nav-item" id="nav-shared" onclick="switchView('shared'); loadShared();" title="Shared">📤</div>
@@ -386,7 +472,7 @@ class LocalServer {
 
   <div class="main">
     <div class="topbar">
-      <div class="top-icon" title="Connect">🔗</div>
+      <div class="top-icon" id="themeIcon" title="Toggle Theme" onclick="toggleTheme()">🌙</div>
       <div class="top-icon" title="Power Off" onclick="logout()">⏻</div>
     </div>
 
@@ -396,8 +482,8 @@ class LocalServer {
         <div class="phone-mockup">
           <div class="phone-screen">
             <div class="drop-zone" id="dropZone" onclick="document.getElementById('homeFileInput').click()">
-              <div class="drop-icon">📄</div>
-              <div class="drop-text">Drag & drop to transfer</div>
+              <div class="drop-icon">✨</div>
+              <div class="drop-text">Drag & Drop Files Here</div>
             </div>
             <input type="file" id="homeFileInput" style="display:none" multiple>
           </div>
@@ -405,36 +491,43 @@ class LocalServer {
         
         <div class="categories-section">
           <div class="device-info">
-            <div class="device-name">Pubel Device</div>
-            <div class="device-os">Android</div>
+            <div>
+              <div class="device-name">Pubel Device</div>
+              <div class="device-os">Android Storage</div>
+            </div>
           </div>
           
           <div class="category-grid">
             <div class="category-item" onclick="openFolder('DCIM')">
-              <div class="cat-icon-box" style="color: #F44336;">🖼️</div>
+              <div class="cat-icon-box" style="color: #EF4444; border-color: rgba(239, 68, 68, 0.2);">🖼️</div>
               <div class="cat-name">Images</div>
             </div>
             <div class="category-item" onclick="openFolder('Movies')">
-              <div class="cat-icon-box" style="color: #2196F3;">🎬</div>
+              <div class="cat-icon-box" style="color: #3B82F6; border-color: rgba(59, 130, 246, 0.2);">🎬</div>
               <div class="cat-name">Video</div>
             </div>
             <div class="category-item" onclick="openFolder('Music')">
-              <div class="cat-icon-box" style="color: #FF9800;">🎵</div>
+              <div class="cat-icon-box" style="color: #F59E0B; border-color: rgba(245, 158, 11, 0.2);">🎵</div>
               <div class="cat-name">Music</div>
             </div>
             <div class="category-item" onclick="openFolder('Documents')">
-              <div class="cat-icon-box" style="color: #4CAF50;">📄</div>
-              <div class="cat-name">Documents</div>
+              <div class="cat-icon-box" style="color: #10B981; border-color: rgba(16, 185, 129, 0.2);">📄</div>
+              <div class="cat-name">Docs</div>
             </div>
             <div class="category-item" onclick="switchView('explorer'); loadExplorer('');">
-              <div class="cat-icon-box" style="color: #9C27B0;">📁</div>
-              <div class="cat-name">Folders</div>
+              <div class="cat-icon-box" style="color: #8B5CF6; border-color: rgba(139, 92, 246, 0.2);">📁</div>
+              <div class="cat-name">All Files</div>
             </div>
           </div>
           
-          <div class="storage-bar-container">
-            <div class="storage-bar-fill"></div>
-            <div class="storage-text">Internal Storage: Connected</div>
+          <div class="storage-container">
+            <div class="storage-header">
+              <span>Internal Storage</span>
+              <span style="color: #10B981;">Connected</span>
+            </div>
+            <div class="storage-bar-wrapper">
+              <div class="storage-bar-fill"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -444,10 +537,10 @@ class LocalServer {
     <div id="explorerView" class="content-area">
       <div class="breadcrumb" id="breadcrumb"></div>
       <div class="toolbar">
-        <div id="explorerCount" style="color: #6B7280; font-size: 13px; font-weight: 500;">Memuat...</div>
-        <div style="display: flex; gap: 8px;">
-          <button class="btn btn-secondary" onclick="loadExplorer(currentPath)">Refresh</button>
-          <button class="btn" onclick="document.getElementById('explorerFileInput').click()">Upload</button>
+        <div id="explorerCount" style="color: var(--text-secondary); font-size: 15px; font-weight: 500;">Memuat...</div>
+        <div style="display: flex; gap: 12px;">
+          <button class="btn btn-secondary" onclick="loadExplorer(currentPath)">🔄 Refresh</button>
+          <button class="btn" onclick="document.getElementById('explorerFileInput').click()">📤 Upload</button>
         </div>
         <input type="file" id="explorerFileInput" style="display:none" multiple>
       </div>
@@ -457,8 +550,8 @@ class LocalServer {
     <!-- Shared View -->
     <div id="sharedView" class="content-area">
       <div class="toolbar">
-        <div style="color: #6B7280; font-size: 13px; font-weight: 500;">File yang dipilih di HP</div>
-        <button class="btn btn-secondary" onclick="loadShared()">Refresh</button>
+        <div style="color: var(--text-secondary); font-size: 15px; font-weight: 500;">File yang dipilih dari HP</div>
+        <button class="btn btn-secondary" onclick="loadShared()">🔄 Refresh</button>
       </div>
       <div class="file-grid" id="sharedGrid"></div>
     </div>
@@ -468,6 +561,25 @@ class LocalServer {
   <div class="toast" id="toast"></div>
 
   <script>
+    // Theme Management
+    function initTheme() {
+      const savedTheme = localStorage.getItem('theme');
+      const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const theme = savedTheme || (systemDark ? 'dark' : 'light');
+      document.documentElement.setAttribute('data-theme', theme);
+      document.getElementById('themeIcon').textContent = theme === 'dark' ? '☀️' : '🌙';
+    }
+
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+      document.getElementById('themeIcon').textContent = next === 'dark' ? '☀️' : '🌙';
+    }
+
+    initTheme();
+
     let currentPath = '';
     const explorerGrid = document.getElementById('explorerGrid');
     const sharedGrid = document.getElementById('sharedGrid');
@@ -504,21 +616,21 @@ class LocalServer {
         if (!res.ok) {
            const err = await res.json();
            showToast(err.error || 'Gagal memuat');
-           explorerGrid.innerHTML = '<div class="empty-msg">⚠️ Gagal memuat folder. Pastikan izin akses file sudah diberikan di aplikasi HP.</div>';
+           explorerGrid.innerHTML = `<div class="empty-msg"><div class="empty-msg-icon">⚠️</div>Gagal memuat folder. Pastikan izin akses file sudah diberikan.</div>`;
            return;
         }
         const items = await res.json();
         explorerGrid.innerHTML = '';
-        document.getElementById('explorerCount').textContent = items.length + ' item';
+        document.getElementById('explorerCount').textContent = `\${items.length} items`;
         
         if (items.length === 0) {
-          explorerGrid.innerHTML = '<div class="empty-msg">Folder ini kosong</div>';
+          explorerGrid.innerHTML = `<div class="empty-msg"><div class="empty-msg-icon">📭</div>Folder ini kosong</div>`;
         } else {
           items.forEach(item => explorerGrid.appendChild(createItemEl(item)));
         }
       } catch (e) { 
         showToast('Kesalahan memuat data');
-        explorerGrid.innerHTML = '<div class="empty-msg">⚠️ Terjadi kesalahan. Pastikan folder ada dan server aktif.</div>';
+        explorerGrid.innerHTML = `<div class="empty-msg"><div class="empty-msg-icon">⚠️</div>Terjadi kesalahan koneksi.</div>`;
       } finally {
         loading.classList.remove('active');
       }
@@ -531,7 +643,7 @@ class LocalServer {
         const items = await res.json();
         sharedGrid.innerHTML = '';
         if (items.length === 0) {
-          sharedGrid.innerHTML = '<div class="empty-msg">Belum ada file dipilih di HP</div>';
+          sharedGrid.innerHTML = `<div class="empty-msg"><div class="empty-msg-icon">📱</div>Belum ada file dipilih dari HP</div>`;
         } else {
           items.forEach(item => sharedGrid.appendChild(createItemEl(item)));
         }
@@ -560,19 +672,19 @@ class LocalServer {
 
     function updateBreadcrumb() {
       const b = document.getElementById('breadcrumb');
-      b.innerHTML = `<span class="breadcrumb-item" onclick="loadExplorer('')">Internal</span>`;
+      b.innerHTML = `<span class="breadcrumb-item" onclick="loadExplorer('')">Internal Storage</span>`;
       if (!currentPath) { b.querySelector('.breadcrumb-item').classList.add('active'); return; }
       let pathAcc = '';
       currentPath.split('/').filter(p=>p).forEach(part => {
         pathAcc += (pathAcc ? '/' : '') + part;
         const currentPathCopy = pathAcc;
-        b.innerHTML += ` <span>/</span> <span class="breadcrumb-item" onclick="loadExplorer('\${currentPathCopy}')">\${part}</span>`;
+        b.innerHTML += ` <span class="breadcrumb-separator">/</span> <span class="breadcrumb-item" onclick="loadExplorer('\${currentPathCopy}')">\${part}</span>`;
       });
       b.querySelector('.breadcrumb-item:last-child').classList.add('active');
     }
 
     function showToast(msg) {
-      toast.textContent = msg;
+      toast.innerHTML = `<span>\${msg}</span>`;
       toast.classList.add('show');
       setTimeout(() => toast.classList.remove('show'), 3000);
     }
@@ -588,7 +700,7 @@ class LocalServer {
         } catch(e) { showToast('Gagal upload: ' + file.name); }
       }
       loading.classList.remove('active');
-      showToast('Upload selesai');
+      showToast(`Berhasil mengunggah \${files.length} file ✨`);
       if (document.getElementById('explorerView').classList.contains('active')) {
         loadExplorer(currentPath);
       }
@@ -618,6 +730,6 @@ class LocalServer {
   </script>
 </body>
 </html>
-''';
-  }
+'''
+
 }
