@@ -326,7 +326,7 @@ class DashRectPainter extends CustomPainter {
 
     Path dashPath = Path();
     double distance = 0.0;
-    for (PathMetric measurePath in path.computeMetrics()) {
+    for (final measurePath in path.computeMetrics()) {
       while (distance < measurePath.length) {
         dashPath.addPath(measurePath.extractPath(distance, distance + gap), Offset.zero);
         distance += gap * 2;

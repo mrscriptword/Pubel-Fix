@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../theme.dart';
 
 class CustomBottomNavBar extends StatelessWidget {
@@ -84,4 +85,3 @@ class CustomBottomNavBar extends StatelessWidget {
     );
   }
 }
-import 'package:google_fonts/google_fonts.dart';

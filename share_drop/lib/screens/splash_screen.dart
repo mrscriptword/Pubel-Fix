@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'package:google_fonts/google_fonts.dart';
 import '../theme.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -168,4 +169,3 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     );
   }
 }
-import 'package:google_fonts/google_fonts.dart';
