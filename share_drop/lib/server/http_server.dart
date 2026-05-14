@@ -23,6 +23,7 @@ class LocalServer {
 
   final List<File> sharedFiles = [];
   final Set<String> _allowedIps = {};
+  final Set<String> _pendingIps = {};
   
   final _requestController = StreamController<ConnectionRequest>.broadcast();
   Stream<ConnectionRequest> get onRequest => _requestController.stream;
@@ -52,6 +53,7 @@ class LocalServer {
 
         if (!_allowedIps.contains(ip)) {
           if (request.url.path == '' || request.url.path == '/') {
+            _triggerApproval(ip, request.headers['user-agent'] ?? 'Unknown Device');
             return Response.ok(_buildWaitingPage(ip), headers: {'content-type': 'text/html; charset=utf-8'});
           }
           
@@ -198,13 +200,15 @@ class LocalServer {
   }
 
   void _triggerApproval(String ip, String userAgent) {
-    if (_allowedIps.contains(ip)) return;
+    if (_allowedIps.contains(ip) || _pendingIps.contains(ip)) return;
     
+    _pendingIps.add(ip);
     final completer = Completer<bool>();
     final request = ConnectionRequest(ip, userAgent, completer);
     _requestController.add(request);
     
     completer.future.then((approved) {
+      _pendingIps.remove(ip);
       if (approved) {
         _allowedIps.add(ip);
       }
@@ -244,9 +248,9 @@ class LocalServer {
   <title>Pubel - Waiting</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    body { font-family: system-ui, -apple-system, sans-serif; background: #0D0D1A; color: #fff; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; text-align: center; }
-    .card { background: rgba(255,255,255,0.05); padding: 40px; border-radius: 24px; border: 1px solid rgba(255,255,255,0.1); max-width: 90%; }
-    .loader { border: 3px solid rgba(255,255,255,0.1); border-top: 3px solid #7C4DFF; border-radius: 50%; width: 32px; height: 32px; animation: spin 0.8s linear infinite; margin: 0 auto 20px; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #F5F7FA; color: #333; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; text-align: center; }
+    .card { background: #fff; padding: 40px; border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); max-width: 90%; }
+    .loader { border: 3px solid #E2E8F0; border-top: 3px solid #4CAF50; border-radius: 50%; width: 32px; height: 32px; animation: spin 0.8s linear infinite; margin: 0 auto 20px; }
     @keyframes spin { to { transform: rotate(360deg); } }
   </style>
   <script>
@@ -262,8 +266,8 @@ class LocalServer {
 <body>
   <div class="card">
     <div class="loader"></div>
-    <h2 style="font-size: 20px;">Menunggu Izin...</h2>
-    <p style="color: rgba(255,255,255,0.5); font-size: 14px; margin-top: 8px;">Silakan berikan izin di aplikasi Pubel HP Anda ($ip)</p>
+    <h2 style="font-size: 20px; margin-bottom: 8px;">Menunggu Izin...</h2>
+    <p style="color: #666; font-size: 14px;">Silakan berikan izin di aplikasi Pubel HP Anda ($ip)</p>
   </div>
 </body>
 </html>
@@ -277,85 +281,170 @@ class LocalServer {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pubel Browser</title>
+  <title>Pubel Web</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; outline: none; }
-    body { font-family: system-ui, -apple-system, sans-serif; background: #080B1A; color: #fff; min-height: 100vh; line-height: 1.5; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #F5F6F8; color: #333; min-height: 100vh; display: flex; }
     
-    .bg-glow { position: fixed; width: 300px; height: 300px; border-radius: 50%; filter: blur(80px); opacity: 0.1; pointer-events: none; z-index: 0; }
-    .bg-glow-1 { top: -50px; right: -50px; background: #7C4DFF; }
-    .bg-glow-2 { bottom: -50px; left: -50px; background: #00E5FF; }
+    /* Sidebar */
+    .sidebar { width: 80px; background: #fff; border-right: 1px solid #E5E7EB; display: flex; flex-direction: column; align-items: center; padding: 20px 0; z-index: 10; }
+    .logo { width: 40px; height: 40px; background: #FF9800; border-radius: 50%; margin-bottom: 30px; display: flex; justify-content: center; align-items: center; color: white; font-weight: bold; font-size: 24px; text-decoration: none;}
+    .nav-item { width: 50px; height: 50px; display: flex; justify-content: center; align-items: center; border-radius: 12px; margin-bottom: 10px; cursor: pointer; color: #9CA3AF; font-size: 24px; transition: 0.2s; }
+    .nav-item:hover { background: #F3F4F6; color: #4CAF50; }
+    .nav-item.active { background: #4CAF50; color: #fff; }
     
-    .container { max-width: 900px; margin: 0 auto; padding: 30px 20px; position: relative; z-index: 1; }
-    .header { text-align: center; margin-bottom: 30px; }
-    .logo-box { display: inline-flex; align-items: center; justify-content: center; width: 50px; height: 50px; background: linear-gradient(135deg, #7C4DFF, #00B4D8); border-radius: 14px; margin-bottom: 12px; }
+    /* Main Content */
+    .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
     
-    .tabs { display: flex; gap: 6px; margin-bottom: 24px; background: rgba(255,255,255,0.03); padding: 4px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); }
-    .tab { flex: 1; text-align: center; padding: 10px; cursor: pointer; border-radius: 8px; transition: 0.2s; font-size: 13px; color: rgba(255,255,255,0.4); font-weight: 500; }
-    .tab.active { background: linear-gradient(135deg, #7C4DFF, #00B4D8); color: #fff; box-shadow: 0 4px 12px rgba(124, 77, 255, 0.3); }
+    /* Topbar */
+    .topbar { height: 60px; background: #fff; border-bottom: 1px solid #E5E7EB; display: flex; justify-content: flex-end; align-items: center; padding: 0 24px; gap: 16px; }
+    .top-icon { color: #9CA3AF; font-size: 20px; cursor: pointer; transition: 0.2s; }
+    .top-icon:hover { color: #333; }
     
-    .view-container { display: none; }
-    .view-container.active { display: block; }
+    /* Content Area */
+    .content-area { flex: 1; padding: 30px; overflow-y: auto; display: none; }
+    .content-area.active { display: block; }
+    
+    /* Home View */
+    .home-layout { display: flex; gap: 40px; align-items: flex-start; max-width: 1000px; margin: 0 auto; }
+    
+    /* Phone Mockup */
+    .phone-mockup { width: 260px; height: 540px; background: #111; border-radius: 30px; padding: 12px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); position: relative; flex-shrink: 0; }
+    .phone-screen { width: 100%; height: 100%; background: #F3F4F6; border-radius: 20px; display: flex; flex-direction: column; justify-content: center; align-items: center; overflow: hidden; position: relative; border: 1px solid #E5E7EB;}
+    .drop-zone { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: pointer; transition: 0.2s; background: #fff; }
+    .drop-zone:hover, .drop-zone.dragover { background: #E8F5E9; }
+    .drop-icon { font-size: 48px; color: #BDBDBD; margin-bottom: 16px; pointer-events: none; }
+    .drop-text { color: #9E9E9E; font-size: 14px; pointer-events: none; }
+    
+    /* Categories */
+    .categories-section { flex: 1; }
+    .device-info { display: flex; align-items: center; gap: 12px; margin-bottom: 40px; }
+    .device-name { font-size: 24px; font-weight: 600; color: #333; }
+    .device-os { font-size: 14px; color: #9CA3AF; }
+    
+    .category-grid { display: flex; flex-wrap: wrap; gap: 30px; margin-bottom: 50px; }
+    .category-item { display: flex; flex-direction: column; align-items: center; gap: 12px; cursor: pointer; width: 80px; transition: 0.2s; }
+    .category-item:hover { transform: translateY(-5px); }
+    .cat-icon-box { width: 70px; height: 70px; border-radius: 50%; border: 1px solid #E5E7EB; display: flex; justify-content: center; align-items: center; font-size: 28px; background: #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.02); }
+    .cat-name { font-size: 13px; color: #6B7280; font-weight: 500; }
+    
+    .storage-bar-container { background: #E5E7EB; height: 16px; border-radius: 8px; overflow: hidden; position: relative; }
+    .storage-bar-fill { background: #FF9800; height: 100%; width: 45%; }
+    .storage-text { position: absolute; width: 100%; text-align: center; top: 0; left: 0; line-height: 16px; font-size: 10px; color: #fff; font-weight: 600; text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
 
-    .breadcrumb { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; padding: 12px 16px; background: rgba(255,255,255,0.03); border-radius: 10px; font-size: 12px; overflow-x: auto; white-space: nowrap; border: 1px solid rgba(255,255,255,0.05); }
-    .breadcrumb-item { cursor: pointer; color: rgba(255,255,255,0.4); }
-    .breadcrumb-item.active { color: #fff; font-weight: 600; }
+    /* Explorer View */
+    .breadcrumb { display: flex; align-items: center; gap: 8px; margin-bottom: 24px; padding: 12px 16px; background: #fff; border-radius: 12px; font-size: 14px; overflow-x: auto; white-space: nowrap; box-shadow: 0 2px 10px rgba(0,0,0,0.02); border: 1px solid #F3F4F6; }
+    .breadcrumb-item { cursor: pointer; color: #6B7280; font-weight: 500; }
+    .breadcrumb-item:hover { color: #4CAF50; }
+    .breadcrumb-item.active { color: #333; font-weight: 600; cursor: default; }
     
-    .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-    .btn { border: none; color: white; padding: 10px 18px; border-radius: 10px; font-size: 12px; font-weight: 600; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 8px; background: linear-gradient(135deg, #7C4DFF, #00B4D8); }
-    .btn:hover { transform: translateY(-1px); opacity: 0.9; }
-    .btn-secondary { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); }
+    .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .btn { border: none; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 8px; background: #4CAF50; color: white; }
+    .btn:hover { background: #43A047; }
+    .btn-secondary { background: #fff; color: #333; border: 1px solid #E5E7EB; }
+    .btn-secondary:hover { background: #F9FAFB; }
 
-    .file-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 12px; }
-    .item { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 14px; padding: 16px; text-align: center; transition: 0.2s; cursor: pointer; }
-    .item:hover { background: rgba(255,255,255,0.06); border-color: rgba(124, 77, 255, 0.3); }
-    .item-icon { font-size: 32px; margin-bottom: 10px; display: block; }
-    .item-name { font-size: 11px; font-weight: 500; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
-    .item-size { font-size: 9px; color: rgba(255,255,255,0.3); margin-top: 4px; display: block; }
+    .file-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 16px; }
+    .item { background: #fff; border: 1px solid #E5E7EB; border-radius: 16px; padding: 20px 16px; text-align: center; transition: 0.2s; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.02); }
+    .item:hover { border-color: #4CAF50; box-shadow: 0 8px 20px rgba(76, 175, 80, 0.1); transform: translateY(-2px); }
+    .item-icon { font-size: 36px; margin-bottom: 12px; display: block; }
+    .item-name { font-size: 12px; font-weight: 500; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; color: #333; }
+    .item-size { font-size: 11px; color: #9CA3AF; margin-top: 6px; display: block; }
     
-    .loading-overlay { position: fixed; inset: 0; background: rgba(8,11,26,0.8); display: none; align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(4px); }
+    /* Utilities */
+    .loading-overlay { position: fixed; inset: 0; background: rgba(255,255,255,0.8); display: none; align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(4px); }
     .loading-overlay.active { display: flex; }
-    .spinner { width: 28px; height: 28px; border: 3px solid rgba(255,255,255,0.1); border-top-color: #7C4DFF; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    .spinner { width: 36px; height: 36px; border: 3px solid #E5E7EB; border-top-color: #4CAF50; border-radius: 50%; animation: spin 0.8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
     
-    .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(100px); background: #7C4DFF; padding: 12px 24px; border-radius: 12px; font-size: 13px; transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 200; box-shadow: 0 10px 30px rgba(0,0,0,0.4); }
+    .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(100px); background: #333; color: white; padding: 12px 24px; border-radius: 8px; font-size: 14px; transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 200; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
     .toast.show { transform: translateX(-50%) translateY(0); }
-    .empty-msg { text-align: center; padding: 60px 0; color: rgba(255,255,255,0.3); font-size: 13px; width: 100%; grid-column: 1 / -1; }
+    .empty-msg { text-align: center; padding: 80px 0; color: #9CA3AF; font-size: 14px; width: 100%; grid-column: 1 / -1; }
   </style>
 </head>
 <body>
-  <div class="bg-glow bg-glow-1"></div>
-  <div class="bg-glow bg-glow-2"></div>
   
-  <div class="container">
-    <div class="header">
-      <div class="logo-box">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+  <div class="sidebar">
+    <div class="logo">X</div>
+    <div class="nav-item active" id="nav-home" onclick="switchView('home')" title="Home">🏠</div>
+    <div class="nav-item" id="nav-explorer" onclick="switchView('explorer'); loadExplorer('');" title="Explorer">📁</div>
+    <div class="nav-item" id="nav-shared" onclick="switchView('shared'); loadShared();" title="Shared">📤</div>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <div class="top-icon" title="Connect">🔗</div>
+      <div class="top-icon" title="Power Off" onclick="window.close()">⏻</div>
+    </div>
+
+    <!-- Home View -->
+    <div id="homeView" class="content-area active">
+      <div class="home-layout">
+        <div class="phone-mockup">
+          <div class="phone-screen">
+            <div class="drop-zone" id="dropZone" onclick="document.getElementById('homeFileInput').click()">
+              <div class="drop-icon">📄</div>
+              <div class="drop-text">Drag & drop to transfer</div>
+            </div>
+            <input type="file" id="homeFileInput" style="display:none" multiple>
+          </div>
+        </div>
+        
+        <div class="categories-section">
+          <div class="device-info">
+            <div class="device-name">Pubel Device</div>
+            <div class="device-os">Android</div>
+          </div>
+          
+          <div class="category-grid">
+            <div class="category-item" onclick="openFolder('DCIM')">
+              <div class="cat-icon-box" style="color: #F44336;">🖼️</div>
+              <div class="cat-name">Images</div>
+            </div>
+            <div class="category-item" onclick="openFolder('Movies')">
+              <div class="cat-icon-box" style="color: #2196F3;">🎬</div>
+              <div class="cat-name">Video</div>
+            </div>
+            <div class="category-item" onclick="openFolder('Music')">
+              <div class="cat-icon-box" style="color: #FF9800;">🎵</div>
+              <div class="cat-name">Music</div>
+            </div>
+            <div class="category-item" onclick="openFolder('Documents')">
+              <div class="cat-icon-box" style="color: #4CAF50;">📄</div>
+              <div class="cat-name">Documents</div>
+            </div>
+            <div class="category-item" onclick="switchView('explorer'); loadExplorer('');">
+              <div class="cat-icon-box" style="color: #9C27B0;">📁</div>
+              <div class="cat-name">Folders</div>
+            </div>
+          </div>
+          
+          <div class="storage-bar-container">
+            <div class="storage-bar-fill"></div>
+            <div class="storage-text">Internal Storage: Connected</div>
+          </div>
+        </div>
       </div>
-      <h2 style="font-size: 22px; font-weight: 800; letter-spacing: -0.5px;">Pubel Explorer</h2>
     </div>
 
-    <div class="tabs">
-      <div id="tab-explorer" class="tab active" onclick="switchTab('explorer')">📂 Explorer</div>
-      <div id="tab-shared" class="tab" onclick="switchTab('shared')">📤 Shared</div>
-    </div>
-
-    <div id="explorerView" class="view-container active">
+    <!-- Explorer View -->
+    <div id="explorerView" class="content-area">
       <div class="breadcrumb" id="breadcrumb"></div>
       <div class="toolbar">
-        <div id="explorerCount" style="color: rgba(255,255,255,0.4); font-size: 11px; font-weight: 500;">Memuat...</div>
+        <div id="explorerCount" style="color: #6B7280; font-size: 13px; font-weight: 500;">Memuat...</div>
         <div style="display: flex; gap: 8px;">
           <button class="btn btn-secondary" onclick="loadExplorer(currentPath)">Refresh</button>
-          <button class="btn" onclick="document.getElementById('fileInput').click()">Upload</button>
+          <button class="btn" onclick="document.getElementById('explorerFileInput').click()">Upload</button>
         </div>
-        <input type="file" id="fileInput" style="display:none" multiple>
+        <input type="file" id="explorerFileInput" style="display:none" multiple>
       </div>
       <div class="file-grid" id="explorerGrid"></div>
     </div>
 
-    <div id="sharedView" class="view-container">
+    <!-- Shared View -->
+    <div id="sharedView" class="content-area">
       <div class="toolbar">
-        <div style="color: rgba(255,255,255,0.4); font-size: 11px; font-weight: 500;">File yang dipilih di HP</div>
+        <div style="color: #6B7280; font-size: 13px; font-weight: 500;">File yang dipilih di HP</div>
         <button class="btn btn-secondary" onclick="loadShared()">Refresh</button>
       </div>
       <div class="file-grid" id="sharedGrid"></div>
@@ -372,13 +461,16 @@ class LocalServer {
     const loading = document.getElementById('loading');
     const toast = document.getElementById('toast');
 
-    function switchTab(tab) {
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.view-container').forEach(v => v.classList.remove('active'));
-      document.getElementById('tab-' + tab).classList.add('active');
-      document.getElementById(tab + 'View').classList.add('active');
-      if (tab === 'explorer') loadExplorer(currentPath);
-      else loadShared();
+    function switchView(view) {
+      document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.content-area').forEach(el => el.classList.remove('active'));
+      document.getElementById('nav-' + view).classList.add('active');
+      document.getElementById(view + 'View').classList.add('active');
+    }
+
+    function openFolder(folder) {
+      switchView('explorer');
+      loadExplorer(folder);
     }
 
     async function loadExplorer(path) {
@@ -416,7 +508,7 @@ class LocalServer {
     function createItemEl(item) {
       const div = document.createElement('div');
       div.className = 'item';
-      let icon = item.isDir ? '📂' : '📄';
+      let icon = item.isDir ? '📁' : '📄';
       if (!item.isDir) {
         const ext = item.name.split('.').pop().toLowerCase();
         if (['jpg','jpeg','png','gif','webp'].includes(ext)) icon = '🖼️';
@@ -424,7 +516,7 @@ class LocalServer {
         else if (['mp3','wav','m4a'].includes(ext)) icon = '🎵';
       }
       const sizeStr = item.isDir ? '' : (item.size > 1048576 ? (item.size/1048576).toFixed(1)+' MB' : (item.size/1024).toFixed(1)+' KB');
-      div.innerHTML = `<span class="item-icon">\${icon}</span><span class="item-name">\${item.name}</span><span class="item-size">\${sizeStr}</span>`;
+      div.innerHTML = `<span class="item-icon">${icon}</span><span class="item-name">${item.name}</span><span class="item-size">${sizeStr}</span>`;
       div.onclick = () => {
         if (item.isDir) loadExplorer(item.path);
         else window.location.href = '/api/download?path=' + encodeURIComponent(item.path);
@@ -440,7 +532,7 @@ class LocalServer {
       currentPath.split('/').filter(p=>p).forEach(part => {
         pathAcc += (pathAcc ? '/' : '') + part;
         const currentPathCopy = pathAcc;
-        b.innerHTML += ' <span style="opacity:0.2">/</span> <span class="breadcrumb-item" onclick="loadExplorer(\''+currentPathCopy+'\')">'+part+'</span>';
+        b.innerHTML += ' <span>/</span> <span class="breadcrumb-item" onclick="loadExplorer(\''+currentPathCopy+'\')">'+part+'</span>';
       });
       b.querySelector('.breadcrumb-item:last-child').classList.add('active');
     }
@@ -451,21 +543,42 @@ class LocalServer {
       setTimeout(() => toast.classList.remove('show'), 3000);
     }
 
-    document.getElementById('fileInput').onchange = async (e) => {
-      const files = e.target.files;
+    async function handleUpload(files, targetPath) {
       if (!files.length) return;
       loading.classList.add('active');
       for (const file of files) {
         const formData = new FormData();
         formData.append('file', file);
         try {
-          await fetch('/api/upload?path=' + encodeURIComponent(currentPath), { method: 'POST', body: formData });
+          await fetch('/api/upload?path=' + encodeURIComponent(targetPath), { method: 'POST', body: formData });
         } catch(e) { showToast('Gagal upload: ' + file.name); }
       }
       loading.classList.remove('active');
       showToast('Upload selesai');
-      loadExplorer(currentPath);
-    };
+      if (document.getElementById('explorerView').classList.contains('active')) {
+        loadExplorer(currentPath);
+      }
+    }
+
+    document.getElementById('explorerFileInput').onchange = (e) => handleUpload(e.target.files, currentPath);
+    document.getElementById('homeFileInput').onchange = (e) => handleUpload(e.target.files, '');
+
+    const dropZone = document.getElementById('dropZone');
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+      dropZone.addEventListener(eventName, preventDefaults, false);
+    });
+    function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
+    
+    ['dragenter', 'dragover'].forEach(eventName => {
+      dropZone.addEventListener(eventName, () => dropZone.classList.add('dragover'), false);
+    });
+    ['dragleave', 'drop'].forEach(eventName => {
+      dropZone.addEventListener(eventName, () => dropZone.classList.remove('dragover'), false);
+    });
+    
+    dropZone.addEventListener('drop', (e) => {
+      handleUpload(e.dataTransfer.files, '');
+    }, false);
 
     loadExplorer('');
   </script>
