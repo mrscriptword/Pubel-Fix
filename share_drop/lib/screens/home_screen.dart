@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'dart:io';
 import 'dart:math';
 import '../theme.dart';
@@ -165,7 +166,7 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(width: 12),
           _miniStat(AppTheme.accentBlue.withOpacity(0.1), AppTheme.accentBlue, Icons.arrow_downward_rounded, '9', 'Diterima'),
           const SizedBox(width: 12),
-          _miniStat(AppTheme.accentAmber.withOpacity(0.1), AppTheme.accentAmber, Icons.database_rounded, '22G', 'Dipakai'),
+          _miniStat(AppTheme.accentAmber.withOpacity(0.1), AppTheme.accentAmber, Icons.storage_rounded, '22G', 'Dipakai'),
         ],
       ),
     );
