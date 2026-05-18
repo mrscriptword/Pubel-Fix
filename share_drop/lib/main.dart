@@ -5,6 +5,7 @@ import 'screens/splash_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/transfer_screen.dart';
 import 'screens/file_manager_screen.dart';
+import 'screens/activity_screen.dart';
 import 'widgets/bottom_nav_bar.dart';
 import 'server/http_server.dart';
 
@@ -13,9 +14,9 @@ void main() {
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.light,
-      systemNavigationBarColor: Color(0xFF111327),
-      systemNavigationBarIconBrightness: Brightness.light,
+      statusBarIconBrightness: Brightness.dark,
+      systemNavigationBarColor: AppTheme.backgroundColor,
+      systemNavigationBarIconBrightness: Brightness.dark,
     ),
   );
   runApp(const PubelApp());
@@ -29,6 +30,8 @@ class PubelApp extends StatelessWidget {
     return MaterialApp(
       title: 'Pubel',
       theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: ThemeMode.system, // Follow system settings
       home: SplashScreen(nextScreen: const MainNavigation()),
       debugShowCheckedModeBanner: false,
     );
@@ -72,7 +75,7 @@ class _MainNavigationState extends State<MainNavigation> {
       barrierDismissible: false,
       builder: (context) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        backgroundColor: AppTheme.cardDark,
+        backgroundColor: Colors.white,
         child: Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
@@ -85,32 +88,32 @@ class _MainNavigationState extends State<MainNavigation> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withOpacity(0.1),
+                  color: AppTheme.accentBlue.withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.laptop_mac_rounded, color: AppTheme.primaryLight, size: 32),
+                child: const Icon(Icons.laptop_mac_rounded, color: AppTheme.accentBlue, size: 32),
               ),
               const SizedBox(height: 20),
               const Text(
                 'Permintaan Akses',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
               ),
               const SizedBox(height: 12),
               Text(
                 'Perangkat dengan IP berikut mencoba mengakses file Anda:',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 14),
+                style: TextStyle(color: AppTheme.textSecondary, fontSize: 14),
               ),
               const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
+                  color: AppTheme.textSecondary.withOpacity(0.05),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
                   request.ip,
-                  style: const TextStyle(color: AppTheme.accentColor, fontWeight: FontWeight.bold, fontSize: 16),
+                  style: const TextStyle(color: AppTheme.accentBlue, fontWeight: FontWeight.bold, fontSize: 16),
                 ),
               ),
               const SizedBox(height: 24),
@@ -124,7 +127,7 @@ class _MainNavigationState extends State<MainNavigation> {
                       },
                       style: TextButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
-                        foregroundColor: Colors.white54,
+                        foregroundColor: AppTheme.textSecondary,
                       ),
                       child: const Text('Tolak'),
                     ),
@@ -170,12 +173,12 @@ class _MainNavigationState extends State<MainNavigation> {
         child: Container(
           padding: const EdgeInsets.all(28),
           decoration: BoxDecoration(
-            color: AppTheme.cardDark,
+            color: Colors.white,
             borderRadius: BorderRadius.circular(28),
-            border: Border.all(color: Colors.white.withOpacity(0.08)),
+            border: Border.all(color: Colors.black.withOpacity(0.08)),
             boxShadow: [
               BoxShadow(
-                color: AppTheme.primaryColor.withOpacity(0.3),
+                color: Colors.black.withOpacity(0.05),
                 blurRadius: 40,
                 spreadRadius: 2,
               ),
@@ -196,13 +199,13 @@ class _MainNavigationState extends State<MainNavigation> {
               const SizedBox(height: 20),
               const Text(
                 'Keluar dari Pubel?',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
               ),
               const SizedBox(height: 8),
               Text(
                 'Server berbagi file akan berhenti\ndan PC tidak bisa mengakses file Anda.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 13, height: 1.6),
+                style: TextStyle(color: AppTheme.textSecondary, fontSize: 13, height: 1.6),
               ),
               const SizedBox(height: 28),
               Row(
@@ -214,10 +217,10 @@ class _MainNavigationState extends State<MainNavigation> {
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
-                          side: BorderSide(color: Colors.white.withOpacity(0.12)),
+                          side: BorderSide(color: Colors.black.withOpacity(0.12)),
                         ),
                       ),
-                      child: Text('Batal', style: TextStyle(color: Colors.white.withOpacity(0.6), fontWeight: FontWeight.w600)),
+                      child: Text('Batal', style: TextStyle(color: AppTheme.textSecondary, fontWeight: FontWeight.w600)),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -287,6 +290,8 @@ class _MainNavigationState extends State<MainNavigation> {
         return TransferScreen(key: const ValueKey(1), server: _server, serverAddress: _serverAddress);
       case 2:
         return FileManagerScreen(key: const ValueKey(2), server: _server);
+      case 3:
+        return const ActivityScreen(key: ValueKey(3));
       default:
         return HomeScreen(key: const ValueKey(0), server: _server, serverAddress: _serverAddress);
     }
