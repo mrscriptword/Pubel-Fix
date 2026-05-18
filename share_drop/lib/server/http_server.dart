@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 import 'dart:convert';
 import 'dart:async';
 import 'package:shelf/shelf.dart';
@@ -23,10 +23,14 @@ class LocalServer {
 
   final List<File> sharedFiles = [];
   final Set<String> _allowedIps = {};
+  final Set<String> _pendingIps = {}; // guard: prevent duplicate dialogs
 
   int get connectedCount => _allowedIps.length;
   Set<String> get connectedIps => Set.unmodifiable(_allowedIps);
-  
+
+  // Simple transfer history
+  final List<Map<String, dynamic>> transferHistory = [];
+
   final _requestController = StreamController<ConnectionRequest>.broadcast();
   Stream<ConnectionRequest> get onRequest => _requestController.stream;
 
@@ -44,22 +48,29 @@ class LocalServer {
         final connInfo = request.context['shelf.io.connection_info'] as HttpConnectionInfo;
         final ip = connInfo.remoteAddress.address;
 
-        // Favicon handling to avoid 404 logs/delays
-        if (request.url.path == 'favicon.ico') {
-          return Response(204);
-        }
+        if (request.url.path == 'favicon.ico') return Response(204);
 
         if (request.url.path == 'api/check-auth') {
-          return Response.ok(jsonEncode({'authorized': _allowedIps.contains(ip)}), headers: {'content-type': 'application/json'});
+          return Response.ok(
+            jsonEncode({'authorized': _allowedIps.contains(ip)}),
+            headers: {'content-type': 'application/json'},
+          );
         }
 
         if (!_allowedIps.contains(ip)) {
+          // Trigger approval dialog on phone when browser first opens
+          _triggerApproval(ip, request.headers['user-agent'] ?? 'Browser');
+
           if (request.url.path == '' || request.url.path == '/') {
-            return Response.ok(_buildWaitingPage(ip), headers: {'content-type': 'text/html; charset=utf-8'});
+            return Response.ok(
+              _buildWaitingPage(ip),
+              headers: {'content-type': 'text/html; charset=utf-8'},
+            );
           }
-          
-          _triggerApproval(ip, request.headers['user-agent'] ?? 'Unknown Device');
-          return Response(403, body: jsonEncode({'error': 'Unauthorized'}), headers: {'content-type': 'application/json'});
+          return Response(403,
+            body: jsonEncode({'error': 'Unauthorized'}),
+            headers: {'content-type': 'application/json'},
+          );
         }
 
         return innerHandler(request);
@@ -142,6 +153,13 @@ class LocalServer {
         if (!await file.exists()) return Response.notFound('File not found');
 
         final fileName = p.basename(fullPath);
+        
+        transferHistory.add({
+          'title': 'Berhasil mengirim $fileName',
+          'meta': 'Ke PC Browser · Baru saja',
+          'type': 'sent'
+        });
+
         return Response.ok(file.openRead(), headers: {
           'Content-Type': 'application/octet-stream',
           'Content-Disposition': 'attachment; filename="$fileName"'
@@ -186,6 +204,12 @@ class LocalServer {
         
         addFile(destFile);
 
+        transferHistory.add({
+          'title': 'Menerima $filename',
+          'meta': 'Dari PC Browser · Baru saja',
+          'type': 'recv'
+        });
+
         return Response.ok(jsonEncode({'success': true, 'message': 'Berhasil!'}));
       } catch (e) {
         return Response.internalServerError(body: jsonEncode({'error': e.toString()}));
@@ -201,16 +225,16 @@ class LocalServer {
   }
 
   void _triggerApproval(String ip, String userAgent) {
-    if (_allowedIps.contains(ip)) return;
-    
+    // Guard: only show one dialog per IP
+    if (_allowedIps.contains(ip) || _pendingIps.contains(ip)) return;
+    _pendingIps.add(ip);
+
     final completer = Completer<bool>();
-    final request = ConnectionRequest(ip, userAgent, completer);
-    _requestController.add(request);
-    
+    _requestController.add(ConnectionRequest(ip, userAgent, completer));
+
     completer.future.then((approved) {
-      if (approved) {
-        _allowedIps.add(ip);
-      }
+      _pendingIps.remove(ip);
+      if (approved) _allowedIps.add(ip);
     });
   }
 

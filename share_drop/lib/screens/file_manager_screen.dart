@@ -101,10 +101,10 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
           ),
           const SizedBox(height: 16),
           Text.rich(TextSpan(
-            text: '108.4',
-            style: GoogleFonts.syne(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w800, letterSpacing: -1),
+            text: _totalCalculatedSize,
+            style: GoogleFonts.syne(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w800, letterSpacing: -1),
             children: [
-              TextSpan(text: ' GB', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 14, fontWeight: FontWeight.w400)),
+              TextSpan(text: ' terdeteksi', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 13, fontWeight: FontWeight.w400)),
             ],
           )),
           const SizedBox(height: 10),
@@ -150,14 +150,69 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
     );
   }
 
-  Widget _buildFolderGrid() {
-    final folders = [
-      {'name': 'Kamera', 'icon': Icons.camera_alt_rounded, 'color': AppTheme.accentRed, 'count': '1,204', 'size': '4.2 GB'},
-      {'name': 'WhatsApp', 'icon': Icons.message_rounded, 'color': AppTheme.accentGreen, 'count': '8,421', 'size': '12.8 GB'},
-      {'name': 'Download', 'icon': Icons.download_rounded, 'color': AppTheme.accentBlue, 'count': '142', 'size': '2.1 GB'},
-      {'name': 'Dokumen', 'icon': Icons.description_rounded, 'color': AppTheme.accentAmber, 'count': '52', 'size': '480 MB'},
-    ];
+  List<Map<String, dynamic>> _folders = [
+    {'name': 'Kamera', 'path': '/storage/emulated/0/DCIM/Camera', 'icon': Icons.camera_alt_rounded, 'color': AppTheme.accentRed, 'count': '...', 'size': '...'},
+    {'name': 'WhatsApp', 'path': '/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media', 'icon': Icons.message_rounded, 'color': AppTheme.accentGreen, 'count': '...', 'size': '...'},
+    {'name': 'Download', 'path': '/storage/emulated/0/Download', 'icon': Icons.download_rounded, 'color': AppTheme.accentBlue, 'count': '...', 'size': '...'},
+    {'name': 'Dokumen', 'path': '/storage/emulated/0/Documents', 'icon': Icons.description_rounded, 'color': AppTheme.accentAmber, 'count': '...', 'size': '...'},
+  ];
 
+  String _totalCalculatedSize = "Menghitung...";
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFolderStats();
+  }
+
+  Future<void> _loadFolderStats() async {
+    int totalOverallSize = 0;
+    
+    for (int i = 0; i < _folders.length; i++) {
+      final dir = Directory(_folders[i]['path'] as String);
+      if (await dir.exists()) {
+        try {
+          int count = 0;
+          int size = 0;
+          await for (final entity in dir.list(recursive: true, followLinks: false).handleError((_) {})) {
+            if (entity is File) {
+              count++;
+              try { size += await entity.length(); } catch (_) {}
+            }
+          }
+          totalOverallSize += size;
+          if (mounted) {
+            setState(() {
+              _folders[i]['count'] = count.toString();
+              _folders[i]['size'] = _formatSize(size);
+              _totalCalculatedSize = _formatSize(totalOverallSize);
+            });
+          }
+        } catch (e) {
+          // ignore error
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _folders[i]['count'] = '0';
+            _folders[i]['size'] = '0 KB';
+          });
+        }
+      }
+    }
+    
+    if (mounted && totalOverallSize == 0) {
+      setState(() => _totalCalculatedSize = "0 KB");
+    }
+  }
+
+  String _formatSize(int bytes) {
+    if (bytes > 1073741824) return '${(bytes / 1073741824).toStringAsFixed(1)} GB';
+    if (bytes > 1048576) return '${(bytes / 1048576).toStringAsFixed(1)} MB';
+    return '${(bytes / 1024).toStringAsFixed(0)} KB';
+  }
+
+  Widget _buildFolderGrid() {
     return GridView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       shrinkWrap: true,
@@ -165,9 +220,9 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2, crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: 1.1,
       ),
-      itemCount: folders.length,
+      itemCount: _folders.length,
       itemBuilder: (context, index) {
-        final f = folders[index];
+        final f = _folders[index];
         return _folderCard(f['name'] as String, f['icon'] as IconData, f['color'] as Color, f['count'] as String, f['size'] as String);
       },
     );

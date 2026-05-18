@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme.dart';
 
+import '../server/http_server.dart';
+
 class ActivityScreen extends StatelessWidget {
-  const ActivityScreen({Key? key}) : super(key: key);
+  final LocalServer server;
+  const ActivityScreen({Key? key, required this.server}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -28,12 +31,22 @@ class ActivityScreen extends StatelessWidget {
   }
 
   Widget _buildActivityList() {
-    final activities = [
-      {'title': 'Berhasil mengirim Pantai Sunset.jpg', 'meta': 'Ke PC Browser · 2 mnt lalu', 'type': 'sent'},
-      {'title': 'Menerima Presentasi Q4.pdf', 'meta': 'Dari PC Browser · 1 jam lalu', 'type': 'recv'},
-      {'title': 'Gagal mengirim Video Tutorial.mp4', 'meta': 'Koneksi terputus · Kemarin', 'type': 'fail'},
-      {'title': 'Berhasil mengirim Musik Relax.mp3', 'meta': 'Ke PC Browser · Kemarin', 'type': 'sent'},
-    ];
+    final activities = server.transferHistory.reversed.toList();
+
+    if (activities.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.only(top: 60),
+          child: Column(
+            children: [
+              Icon(Icons.history_rounded, size: 64, color: AppTheme.textSecondary.withOpacity(0.3)),
+              const SizedBox(height: 16),
+              Text('Belum ada riwayat transfer', style: TextStyle(color: AppTheme.textSecondary, fontSize: 14)),
+            ],
+          ),
+        ),
+      );
+    }
 
     return ListView.builder(
       shrinkWrap: true,

@@ -76,9 +76,22 @@ class _TransferScreenState extends State<TransferScreen> {
               Text('KONEKSI', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w500, letterSpacing: 0.08)),
               Row(
                 children: [
-                  Container(width: 7, height: 7, decoration: const BoxDecoration(color: AppTheme.accentGreen, shape: BoxShape.circle)),
+                  Container(
+                    width: 7, height: 7, 
+                    decoration: BoxDecoration(
+                      color: widget.server.connectedCount > 0 ? AppTheme.accentGreen : AppTheme.accentRed, 
+                      shape: BoxShape.circle
+                    )
+                  ),
                   const SizedBox(width: 6),
-                  const Text('Terhubung', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.accentGreen)),
+                  Text(
+                    widget.server.connectedCount > 0 ? 'Terhubung' : 'Terputus', 
+                    style: TextStyle(
+                      fontSize: 13, 
+                      fontWeight: FontWeight.w500, 
+                      color: widget.server.connectedCount > 0 ? AppTheme.accentGreen : AppTheme.accentRed
+                    )
+                  ),
                 ],
               ),
             ],
@@ -86,12 +99,17 @@ class _TransferScreenState extends State<TransferScreen> {
           const SizedBox(height: 14),
           Row(
             children: [
-              _deviceItem(Icons.smartphone_rounded, 'iPhone Andi', 'Perangkat ini', AppTheme.textPrimary),
+              _deviceItem(Icons.smartphone_rounded, 'Perangkat Anda', 'Pengirim', AppTheme.textPrimary),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: Icon(Icons.swap_horiz_rounded, color: AppTheme.textSecondary, size: 20),
               ),
-              _deviceItem(Icons.laptop_rounded, 'PC Browser', 'Tujuan', AppTheme.accentBlue),
+              _deviceItem(
+                Icons.laptop_rounded, 
+                widget.server.connectedCount > 0 ? 'PC (${widget.server.connectedCount})' : 'PC Browser', 
+                'Tujuan', 
+                AppTheme.accentBlue
+              ),
             ],
           ),
         ],

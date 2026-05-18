@@ -291,7 +291,7 @@ class _MainNavigationState extends State<MainNavigation> {
       case 2:
         return FileManagerScreen(key: const ValueKey(2), server: _server);
       case 3:
-        return const ActivityScreen(key: ValueKey(3));
+        return ActivityScreen(key: const ValueKey(3), server: _server);
       default:
         return HomeScreen(key: const ValueKey(0), server: _server, serverAddress: _serverAddress);
     }
