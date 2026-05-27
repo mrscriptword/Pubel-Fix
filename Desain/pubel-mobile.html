@@ -1,0 +1,1022 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pubel — Mobile App</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Epilogue:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: #0D0D0D;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Epilogue', sans-serif;
+  padding: 40px 20px;
+  gap: 48px;
+  flex-wrap: wrap;
+}
+
+/* ─── PHONE FRAME ─── */
+.phone-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+.phone-label {
+  font-family: 'Syne', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #555;
+}
+.phone {
+  width: 375px;
+  height: 812px;
+  background: #111;
+  border-radius: 50px;
+  padding: 12px;
+  box-shadow:
+    0 0 0 1px #2a2a2a,
+    0 40px 80px rgba(0,0,0,0.8),
+    inset 0 0 0 1px rgba(255,255,255,0.04);
+  position: relative;
+}
+.phone-inner {
+  width: 100%;
+  height: 100%;
+  border-radius: 40px;
+  overflow: hidden;
+  position: relative;
+  background: #F7F5F1;
+}
+
+/* Dynamic island */
+.dynamic-island {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 120px;
+  height: 34px;
+  background: #000;
+  border-radius: 20px;
+  z-index: 100;
+}
+
+/* ─── SCREEN CONTENT ─── */
+.screen {
+  width: 100%;
+  height: 100%;
+  display: none;
+  flex-direction: column;
+  background: #F7F5F1;
+  overflow: hidden;
+}
+.screen.active { display: flex; }
+
+/* STATUS BAR */
+.status-bar {
+  height: 58px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 0 24px 8px;
+  flex-shrink: 0;
+}
+.status-time {
+  font-family: 'Syne', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1A1814;
+}
+.status-icons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #1A1814;
+  font-size: 14px;
+}
+
+/* SCROLL AREA */
+.scroll-area {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.scroll-area::-webkit-scrollbar { display: none; }
+
+/* BOTTOM NAV */
+.bottom-nav {
+  height: 84px;
+  background: rgba(247,245,241,0.9);
+  backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(0,0,0,0.06);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-around;
+  padding-top: 12px;
+  flex-shrink: 0;
+}
+.bnav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  padding: 6px 16px;
+  border-radius: 14px;
+  transition: background 0.2s;
+  min-width: 60px;
+}
+.bnav-item.active { background: rgba(0,0,0,0.06); }
+.bnav-item i { font-size: 22px; color: #B0ADA8; }
+.bnav-item.active i { color: #1A1814; }
+.bnav-label { font-size: 10px; font-weight: 500; color: #B0ADA8; letter-spacing: 0.02em; }
+.bnav-item.active .bnav-label { color: #1A1814; }
+
+/* ══════════════════════════════
+   SCREEN 1 — HOME
+══════════════════════════════ */
+#homeScreen .page-header {
+  padding: 20px 24px 0;
+}
+.greeting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.greeting {
+  font-size: 13px;
+  color: #9A9690;
+  font-weight: 400;
+}
+.avatar {
+  width: 36px; height: 36px;
+  background: #1A1814;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  color: #F7F5F1;
+  font-family: 'Syne', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+}
+.page-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 28px;
+  font-weight: 800;
+  color: #1A1814;
+  letter-spacing: -0.5px;
+  line-height: 1.1;
+}
+
+/* Upload card */
+.upload-card {
+  margin: 20px 24px 0;
+  background: #1A1814;
+  border-radius: 24px;
+  padding: 28px 24px;
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+}
+.upload-card::before {
+  content: '';
+  position: absolute;
+  top: -40px; right: -40px;
+  width: 160px; height: 160px;
+  background: rgba(255,255,255,0.04);
+  border-radius: 50%;
+}
+.upload-card::after {
+  content: '';
+  position: absolute;
+  bottom: -60px; left: 20px;
+  width: 200px; height: 200px;
+  background: rgba(255,255,255,0.03);
+  border-radius: 50%;
+}
+.upload-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 100px;
+  padding: 4px 10px;
+  font-size: 11px;
+  color: rgba(255,255,255,0.6);
+  font-weight: 500;
+  margin-bottom: 14px;
+  position: relative; z-index: 1;
+}
+.upload-tag i { font-size: 12px; }
+.upload-card h3 {
+  font-family: 'Syne', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 6px;
+  position: relative; z-index: 1;
+}
+.upload-card p {
+  font-size: 13px;
+  color: rgba(255,255,255,0.45);
+  margin-bottom: 20px;
+  position: relative; z-index: 1;
+}
+.upload-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  color: #1A1814;
+  border-radius: 14px;
+  padding: 12px 20px;
+  font-family: 'Syne', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  position: relative; z-index: 1;
+  cursor: pointer;
+}
+.upload-btn i { font-size: 16px; }
+
+/* Stats row */
+.stats-row {
+  display: flex;
+  gap: 12px;
+  margin: 16px 24px 0;
+}
+.mini-stat {
+  flex: 1;
+  background: #fff;
+  border-radius: 18px;
+  padding: 16px 14px;
+  border: 1px solid rgba(0,0,0,0.05);
+}
+.mini-stat-icon {
+  width: 32px; height: 32px;
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 10px;
+  font-size: 15px;
+}
+.ms-green { background: #E8F5EE; color: #1A7A4A; }
+.ms-blue  { background: #EEF3FD; color: #2D5BE3; }
+.ms-amber { background: #FDF2E8; color: #B85C0A; }
+.mini-stat-val {
+  font-family: 'Syne', sans-serif;
+  font-size: 22px;
+  font-weight: 800;
+  color: #1A1814;
+  letter-spacing: -0.5px;
+  line-height: 1;
+  margin-bottom: 2px;
+}
+.mini-stat-label {
+  font-size: 11px;
+  color: #9A9690;
+  font-weight: 400;
+}
+
+/* Section */
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px 12px;
+}
+.section-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: #1A1814;
+}
+.section-link {
+  font-size: 13px;
+  color: #9A9690;
+  cursor: pointer;
+}
+
+/* Category chips */
+.chip-row {
+  display: flex;
+  gap: 8px;
+  padding: 0 24px 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.chip-row::-webkit-scrollbar { display: none; }
+.chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 100px;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  border: 1.5px solid transparent;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+.chip.active { background: #1A1814; color: #fff; }
+.chip:not(.active) { background: #fff; color: #1A1814; border-color: rgba(0,0,0,0.08); }
+.chip i { font-size: 14px; }
+
+/* File list */
+.file-list { padding: 0 24px; }
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(0,0,0,0.05);
+  cursor: pointer;
+}
+.file-item:last-child { border: none; }
+.fitem-icon {
+  width: 44px; height: 44px;
+  border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+.ic-img { background: #FDEAEA; }
+.ic-vid { background: #EAF0FD; }
+.ic-doc { background: #E8F5EE; }
+.ic-mus { background: #FDF5E8; }
+.ic-zip { background: #F0EAFD; }
+.fitem-info { flex: 1; min-width: 0; }
+.fitem-name {
+  font-size: 14px; font-weight: 500; color: #1A1814;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.fitem-meta { font-size: 12px; color: #9A9690; margin-top: 2px; }
+.fitem-size {
+  font-size: 12px;
+  color: #9A9690;
+  font-family: 'Syne', sans-serif;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+/* ══════════════════════════════
+   SCREEN 2 — SEND
+══════════════════════════════ */
+#sendScreen { background: #F7F5F1; }
+
+.send-header {
+  padding: 20px 24px 0;
+}
+.send-header .page-title {
+  font-size: 26px;
+}
+
+/* Connection status */
+.conn-card {
+  margin: 20px 24px 0;
+  background: #fff;
+  border-radius: 20px;
+  padding: 18px;
+  border: 1px solid rgba(0,0,0,0.06);
+}
+.conn-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.conn-label { font-size: 12px; color: #9A9690; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; }
+.conn-status {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 13px; font-weight: 500; color: #1A7A4A;
+}
+.conn-dot { width: 7px; height: 7px; background: #1A7A4A; border-radius: 50%; animation: pulse 2s infinite; }
+@keyframes pulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(26,122,74,0.4); }
+  50% { box-shadow: 0 0 0 5px rgba(26,122,74,0); }
+}
+.conn-devices {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.conn-device {
+  flex: 1;
+  background: #F7F5F1;
+  border-radius: 12px;
+  padding: 12px;
+  text-align: center;
+}
+.conn-device-icon { font-size: 24px; margin-bottom: 4px; }
+.conn-device-name { font-size: 12px; font-weight: 600; color: #1A1814; }
+.conn-device-sub { font-size: 10px; color: #9A9690; }
+.conn-arrow { color: #9A9690; font-size: 20px; }
+
+/* Pick area */
+.pick-area {
+  margin: 14px 24px 0;
+  border: 2px dashed rgba(0,0,0,0.12);
+  border-radius: 20px;
+  padding: 32px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: transparent;
+}
+.pick-area:active { background: rgba(0,0,0,0.02); border-color: rgba(0,0,0,0.25); }
+.pick-icon { font-size: 36px; color: #C8C5C0; margin-bottom: 10px; }
+.pick-title { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; color: #1A1814; margin-bottom: 4px; }
+.pick-sub { font-size: 13px; color: #9A9690; }
+
+/* Queue */
+.queue-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(0,0,0,0.05);
+}
+.queue-item:last-child { border: none; }
+.q-icon {
+  width: 40px; height: 40px;
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.q-info { flex: 1; min-width: 0; }
+.q-name { font-size: 13px; font-weight: 500; color: #1A1814; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.q-progress-wrap { margin-top: 5px; display: flex; align-items: center; gap: 8px; }
+.q-bar { flex: 1; height: 3px; background: rgba(0,0,0,0.08); border-radius: 2px; overflow: hidden; }
+.q-bar-fill { height: 100%; border-radius: 2px; background: #1A1814; }
+.q-pct { font-size: 11px; color: #9A9690; font-family: 'Syne', sans-serif; font-weight: 600; }
+.q-done { color: #1A7A4A; font-size: 18px; }
+
+.send-btn {
+  margin: 16px 24px 0;
+  width: calc(100% - 48px);
+  background: #1A1814;
+  color: #fff;
+  border-radius: 18px;
+  padding: 16px;
+  text-align: center;
+  font-family: 'Syne', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.send-btn i { font-size: 18px; }
+
+/* ══════════════════════════════
+   SCREEN 3 — FILES
+══════════════════════════════ */
+#filesScreen { background: #F7F5F1; }
+
+.search-bar {
+  margin: 16px 24px 0;
+  background: #fff;
+  border-radius: 14px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid rgba(0,0,0,0.06);
+}
+.search-bar i { color: #9A9690; font-size: 18px; }
+.search-bar span { font-size: 14px; color: #9A9690; }
+
+/* Storage visual */
+.storage-visual {
+  margin: 16px 24px 0;
+  background: #1A1814;
+  border-radius: 22px;
+  padding: 20px;
+  color: #fff;
+}
+.sv-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
+.sv-title { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; }
+.sv-sub { font-size: 12px; color: rgba(255,255,255,0.45); margin-top: 2px; }
+.sv-used { font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800; letter-spacing: -1px; }
+.sv-used span { font-size: 14px; font-weight: 400; color: rgba(255,255,255,0.5); }
+.sv-bar-bg { height: 6px; background: rgba(255,255,255,0.12); border-radius: 3px; overflow: hidden; margin-bottom: 10px; }
+.sv-bar-fill { height: 100%; background: #fff; border-radius: 3px; width: 45%; }
+.sv-cats { display: flex; gap: 14px; }
+.sv-cat { display: flex; align-items: center; gap: 6px; font-size: 11px; color: rgba(255,255,255,0.55); }
+.sv-cat-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+/* folder grid */
+.folder-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 0 24px;
+}
+.folder-card {
+  background: #fff;
+  border-radius: 18px;
+  padding: 16px;
+  cursor: pointer;
+  border: 1px solid rgba(0,0,0,0.05);
+  transition: transform 0.15s;
+}
+.folder-card:active { transform: scale(0.97); }
+.fc-icon-row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+.fc-icon { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+.fc-count { font-size: 11px; color: #9A9690; background: rgba(0,0,0,0.05); padding: 3px 8px; border-radius: 100px; }
+.fc-name { font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; color: #1A1814; }
+.fc-size { font-size: 12px; color: #9A9690; margin-top: 2px; }
+
+/* ══════════════════════════════
+   SCREEN 4 — ACTIVITY
+══════════════════════════════ */
+#activityScreen { background: #F7F5F1; }
+
+.act-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 24px;
+  border-bottom: 1px solid rgba(0,0,0,0.04);
+}
+.act-dot-col { display: flex; flex-direction: column; align-items: center; padding-top: 4px; }
+.act-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.act-dot.sent { background: #2D5BE3; }
+.act-dot.recv { background: #1A7A4A; }
+.act-dot.fail { background: #C0392B; }
+.act-line { flex: 1; width: 1px; background: rgba(0,0,0,0.07); margin-top: 4px; }
+.act-info { flex: 1; }
+.act-desc { font-size: 14px; font-weight: 500; color: #1A1814; line-height: 1.4; }
+.act-meta { font-size: 12px; color: #9A9690; margin-top: 3px; }
+.act-badge {
+  font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 100px;
+  flex-shrink: 0;
+}
+.badge-sent { background: #EEF3FD; color: #2D5BE3; }
+.badge-recv { background: #E8F5EE; color: #1A7A4A; }
+.badge-fail { background: #FDEAEA; color: #C0392B; }
+
+/* External decoration */
+.screens-label {
+  position: absolute;
+  bottom: -28px;
+  left: 0; right: 0;
+  text-align: center;
+  font-family: 'Syne', sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #444;
+}
+</style>
+</head>
+<body>
+
+<!-- ═══ PHONE 1: HOME ═══ -->
+<div class="phone-wrap">
+  <div class="phone-label">Beranda</div>
+  <div class="phone" style="position:relative;">
+    <div class="phone-inner">
+      <div class="dynamic-island"></div>
+      <div class="screen active" id="homeScreen">
+        <div class="status-bar">
+          <span class="status-time">9:41</span>
+          <div class="status-icons">
+            <i class="ti ti-signal-4g"></i>
+            <i class="ti ti-wifi"></i>
+            <i class="ti ti-battery-3"></i>
+          </div>
+        </div>
+
+        <div class="scroll-area">
+          <div class="page-header">
+            <div class="greeting-row">
+              <span class="greeting">Selamat pagi, Andi 👋</span>
+              <div class="avatar">AN</div>
+            </div>
+            <div class="page-title">Kirim &<br>Terima File</div>
+          </div>
+
+          <!-- Upload card -->
+          <div class="upload-card">
+            <div class="upload-tag"><i class="ti ti-bolt"></i> Transfer Cepat</div>
+            <h3>Seret atau pilih<br>file manapun</h3>
+            <p>Wi-Fi Direct · tanpa kuota internet</p>
+            <div class="upload-btn"><i class="ti ti-plus"></i> Pilih File</div>
+          </div>
+
+          <!-- Stats -->
+          <div class="stats-row">
+            <div class="mini-stat">
+              <div class="mini-stat-icon ms-green"><i class="ti ti-arrow-up"></i></div>
+              <div class="mini-stat-val">24</div>
+              <div class="mini-stat-label">Dikirim</div>
+            </div>
+            <div class="mini-stat">
+              <div class="mini-stat-icon ms-blue"><i class="ti ti-arrow-down"></i></div>
+              <div class="mini-stat-val">9</div>
+              <div class="mini-stat-label">Diterima</div>
+            </div>
+            <div class="mini-stat">
+              <div class="mini-stat-icon ms-amber"><i class="ti ti-database"></i></div>
+              <div class="mini-stat-val">22G</div>
+              <div class="mini-stat-label">Dipakai</div>
+            </div>
+          </div>
+
+          <!-- Recent files -->
+          <div class="section-head">
+            <span class="section-title">File Terbaru</span>
+            <span class="section-link">Lihat semua</span>
+          </div>
+          <div class="chip-row">
+            <div class="chip active"><i class="ti ti-stack-2"></i> Semua</div>
+            <div class="chip"><i class="ti ti-photo"></i> Gambar</div>
+            <div class="chip"><i class="ti ti-movie"></i> Video</div>
+            <div class="chip"><i class="ti ti-file-text"></i> Dokumen</div>
+            <div class="chip"><i class="ti ti-music"></i> Musik</div>
+          </div>
+          <div class="file-list" style="margin-top:8px;">
+            <div class="file-item">
+              <div class="fitem-icon ic-img"><i class="ti ti-photo" style="color:#D84040;"></i></div>
+              <div class="fitem-info">
+                <div class="fitem-name">Pantai Sunset.jpg</div>
+                <div class="fitem-meta">Dikirim ke Budi · 2 mnt lalu</div>
+              </div>
+              <div class="fitem-size">2.4 MB</div>
+            </div>
+            <div class="file-item">
+              <div class="fitem-icon ic-doc"><i class="ti ti-file-type-pdf" style="color:#10B981;"></i></div>
+              <div class="fitem-info">
+                <div class="fitem-name">Presentasi Q4.pdf</div>
+                <div class="fitem-meta">Diterima dari Sari · 1 jam lalu</div>
+              </div>
+              <div class="fitem-size">1.1 MB</div>
+            </div>
+            <div class="file-item">
+              <div class="fitem-icon ic-vid"><i class="ti ti-movie" style="color:#3B82F6;"></i></div>
+              <div class="fitem-info">
+                <div class="fitem-name">Teaser Video.mp4</div>
+                <div class="fitem-meta">Dikirim ke Reza · kemarin</div>
+              </div>
+              <div class="fitem-size">15.8 MB</div>
+            </div>
+            <div class="file-item">
+              <div class="fitem-icon ic-mus"><i class="ti ti-music" style="color:#F59E0B;"></i></div>
+              <div class="fitem-info">
+                <div class="fitem-name">Lagu Favorit.mp3</div>
+                <div class="fitem-meta">Diterima dari Tono · kemarin</div>
+              </div>
+              <div class="fitem-size">4.2 MB</div>
+            </div>
+          </div>
+          <div style="height:16px;"></div>
+        </div>
+
+        <div class="bottom-nav">
+          <div class="bnav-item active"><i class="ti ti-home"></i><span class="bnav-label">Beranda</span></div>
+          <div class="bnav-item"><i class="ti ti-send"></i><span class="bnav-label">Kirim</span></div>
+          <div class="bnav-item"><i class="ti ti-folder"></i><span class="bnav-label">File</span></div>
+          <div class="bnav-item"><i class="ti ti-clock"></i><span class="bnav-label">Riwayat</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ PHONE 2: SEND ═══ -->
+<div class="phone-wrap">
+  <div class="phone-label">Kirim File</div>
+  <div class="phone" style="position:relative;">
+    <div class="phone-inner">
+      <div class="dynamic-island"></div>
+      <div class="screen active" id="sendScreen">
+        <div class="status-bar">
+          <span class="status-time">9:41</span>
+          <div class="status-icons">
+            <i class="ti ti-signal-4g"></i>
+            <i class="ti ti-wifi"></i>
+            <i class="ti ti-battery-3"></i>
+          </div>
+        </div>
+
+        <div class="scroll-area">
+          <div class="send-header">
+            <div class="greeting">Transfer Langsung</div>
+            <div class="page-title">Kirim File</div>
+          </div>
+
+          <div class="conn-card">
+            <div class="conn-top">
+              <span class="conn-label">Koneksi</span>
+              <div class="conn-status"><div class="conn-dot"></div> Terhubung</div>
+            </div>
+            <div class="conn-devices">
+              <div class="conn-device">
+                <div class="conn-device-icon"><i class="ti ti-device-mobile" style="font-size:24px;color:#1A1814;"></i></div>
+                <div class="conn-device-name">iPhone Andi</div>
+                <div class="conn-device-sub">Perangkat ini</div>
+              </div>
+              <i class="ti ti-arrows-right-left conn-arrow"></i>
+              <div class="conn-device">
+                <div class="conn-device-icon"><i class="ti ti-device-mobile" style="font-size:24px;color:#2D5BE3;"></i></div>
+                <div class="conn-device-name">Galaxy Budi</div>
+                <div class="conn-device-sub">Tujuan</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="pick-area">
+            <div class="pick-icon"><i class="ti ti-file-plus"></i></div>
+            <div class="pick-title">Tambah File</div>
+            <div class="pick-sub">Ketuk untuk memilih dari galeri atau penyimpanan</div>
+          </div>
+
+          <div class="section-head">
+            <span class="section-title">Antrian Kirim</span>
+            <span class="section-link">Hapus semua</span>
+          </div>
+
+          <div class="file-list">
+            <div class="queue-item">
+              <div class="q-icon ic-img"><i class="ti ti-photo" style="color:#D84040;"></i></div>
+              <div class="q-info">
+                <div class="q-name">Pantai Sunset.jpg</div>
+                <div class="q-progress-wrap">
+                  <div class="q-bar"><div class="q-bar-fill" style="width:100%;"></div></div>
+                  <span class="q-pct">Selesai</span>
+                </div>
+              </div>
+              <i class="ti ti-circle-check q-done"></i>
+            </div>
+            <div class="queue-item">
+              <div class="q-icon ic-vid"><i class="ti ti-movie" style="color:#3B82F6;"></i></div>
+              <div class="q-info">
+                <div class="q-name">Teaser Video.mp4</div>
+                <div class="q-progress-wrap">
+                  <div class="q-bar"><div class="q-bar-fill" style="width:68%;"></div></div>
+                  <span class="q-pct">68%</span>
+                </div>
+              </div>
+            </div>
+            <div class="queue-item">
+              <div class="q-icon ic-doc"><i class="ti ti-file-zip" style="color:#8B5CF6;"></i></div>
+              <div class="q-info">
+                <div class="q-name">Arsip Proyek.zip</div>
+                <div class="q-progress-wrap">
+                  <div class="q-bar"><div class="q-bar-fill" style="width:0%;"></div></div>
+                  <span class="q-pct">Menunggu</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="send-btn"><i class="ti ti-send"></i> Kirim Semua (3 file)</div>
+          <div style="height:16px;"></div>
+        </div>
+
+        <div class="bottom-nav">
+          <div class="bnav-item"><i class="ti ti-home"></i><span class="bnav-label">Beranda</span></div>
+          <div class="bnav-item active"><i class="ti ti-send"></i><span class="bnav-label">Kirim</span></div>
+          <div class="bnav-item"><i class="ti ti-folder"></i><span class="bnav-label">File</span></div>
+          <div class="bnav-item"><i class="ti ti-clock"></i><span class="bnav-label">Riwayat</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ PHONE 3: FILES ═══ -->
+<div class="phone-wrap">
+  <div class="phone-label">File Explorer</div>
+  <div class="phone" style="position:relative;">
+    <div class="phone-inner">
+      <div class="dynamic-island"></div>
+      <div class="screen active" id="filesScreen">
+        <div class="status-bar">
+          <span class="status-time">9:41</span>
+          <div class="status-icons">
+            <i class="ti ti-signal-4g"></i>
+            <i class="ti ti-wifi"></i>
+            <i class="ti ti-battery-3"></i>
+          </div>
+        </div>
+
+        <div class="scroll-area">
+          <div class="send-header">
+            <div class="greeting">Penyimpanan Internal</div>
+            <div class="page-title">File Saya</div>
+          </div>
+
+          <div class="search-bar">
+            <i class="ti ti-search"></i>
+            <span>Cari file...</span>
+          </div>
+
+          <div class="storage-visual">
+            <div class="sv-top">
+              <div>
+                <div class="sv-title">Penyimpanan</div>
+                <div class="sv-sub">45% terpakai</div>
+              </div>
+              <div style="text-align:right;">
+                <div class="sv-used">22.4 <span>GB</span></div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.4);">dari 50 GB</div>
+              </div>
+            </div>
+            <div class="sv-bar-bg"><div class="sv-bar-fill"></div></div>
+            <div class="sv-cats">
+              <div class="sv-cat"><div class="sv-cat-dot" style="background:#EF4444;"></div>Gambar 8.2G</div>
+              <div class="sv-cat"><div class="sv-cat-dot" style="background:#3B82F6;"></div>Video 11.1G</div>
+              <div class="sv-cat"><div class="sv-cat-dot" style="background:#F59E0B;"></div>Lainnya 3.1G</div>
+            </div>
+          </div>
+
+          <div class="section-head" style="margin-top:6px;">
+            <span class="section-title">Kategori</span>
+            <span class="section-link">Semua file</span>
+          </div>
+
+          <div class="folder-grid">
+            <div class="folder-card">
+              <div class="fc-icon-row">
+                <div class="fc-icon ic-img"><i class="ti ti-photo" style="color:#D84040;"></i></div>
+                <span class="fc-count">284</span>
+              </div>
+              <div class="fc-name">Gambar</div>
+              <div class="fc-size">8.2 GB</div>
+            </div>
+            <div class="folder-card">
+              <div class="fc-icon-row">
+                <div class="fc-icon ic-vid"><i class="ti ti-movie" style="color:#3B82F6;"></i></div>
+                <span class="fc-count">47</span>
+              </div>
+              <div class="fc-name">Video</div>
+              <div class="fc-size">11.1 GB</div>
+            </div>
+            <div class="folder-card">
+              <div class="fc-icon-row">
+                <div class="fc-icon ic-doc"><i class="ti ti-file-text" style="color:#10B981;"></i></div>
+                <span class="fc-count">129</span>
+              </div>
+              <div class="fc-name">Dokumen</div>
+              <div class="fc-size">1.7 GB</div>
+            </div>
+            <div class="folder-card">
+              <div class="fc-icon-row">
+                <div class="fc-icon ic-mus"><i class="ti ti-music" style="color:#F59E0B;"></i></div>
+                <span class="fc-count">391</span>
+              </div>
+              <div class="fc-name">Musik</div>
+              <div class="fc-size">1.4 GB</div>
+            </div>
+            <div class="folder-card">
+              <div class="fc-icon-row">
+                <div class="fc-icon ic-zip"><i class="ti ti-file-zip" style="color:#8B5CF6;"></i></div>
+                <span class="fc-count">18</span>
+              </div>
+              <div class="fc-name">Arsip</div>
+              <div class="fc-size">88.5 MB</div>
+            </div>
+            <div class="folder-card" style="border:2px dashed rgba(0,0,0,0.1);background:transparent;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;">
+              <i class="ti ti-plus" style="font-size:24px;color:#C8C5C0;"></i>
+              <span style="font-size:12px;color:#9A9690;">Folder Baru</span>
+            </div>
+          </div>
+
+          <div style="height:16px;"></div>
+        </div>
+
+        <div class="bottom-nav">
+          <div class="bnav-item"><i class="ti ti-home"></i><span class="bnav-label">Beranda</span></div>
+          <div class="bnav-item"><i class="ti ti-send"></i><span class="bnav-label">Kirim</span></div>
+          <div class="bnav-item active"><i class="ti ti-folder"></i><span class="bnav-label">File</span></div>
+          <div class="bnav-item"><i class="ti ti-clock"></i><span class="bnav-label">Riwayat</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ PHONE 4: ACTIVITY ═══ -->
+<div class="phone-wrap">
+  <div class="phone-label">Riwayat</div>
+  <div class="phone" style="position:relative;">
+    <div class="phone-inner">
+      <div class="dynamic-island"></div>
+      <div class="screen active" id="activityScreen">
+        <div class="status-bar">
+          <span class="status-time">9:41</span>
+          <div class="status-icons">
+            <i class="ti ti-signal-4g"></i>
+            <i class="ti ti-wifi"></i>
+            <i class="ti ti-battery-3"></i>
+          </div>
+        </div>
+
+        <div class="scroll-area">
+          <div class="send-header">
+            <div class="greeting">Transfer selesai</div>
+            <div class="page-title">Riwayat</div>
+          </div>
+
+          <div class="chip-row" style="margin-top:14px;">
+            <div class="chip active">Semua</div>
+            <div class="chip">Dikirim</div>
+            <div class="chip">Diterima</div>
+            <div class="chip">Gagal</div>
+          </div>
+
+          <!-- Timeline -->
+          <div style="margin-top:16px;">
+            <div style="padding:0 24px 8px;font-size:11px;font-weight:600;color:#9A9690;letter-spacing:0.08em;text-transform:uppercase;">Hari Ini</div>
+
+            <div class="act-item">
+              <div class="act-dot-col"><div class="act-dot sent"></div><div class="act-line"></div></div>
+              <div class="act-info">
+                <div class="act-desc">Pantai Sunset.jpg dikirim ke <strong>Budi</strong></div>
+                <div class="act-meta">2.4 MB · 14:32 · 3 detik</div>
+              </div>
+              <span class="act-badge badge-sent">Kirim</span>
+            </div>
+
+            <div class="act-item">
+              <div class="act-dot-col"><div class="act-dot recv"></div><div class="act-line"></div></div>
+              <div class="act-info">
+                <div class="act-desc">Presentasi Q4.pdf diterima dari <strong>Sari</strong></div>
+                <div class="act-meta">1.1 MB · 09:15 · 1 detik</div>
+              </div>
+              <span class="act-badge badge-recv">Terima</span>
+            </div>
+
+            <div class="act-item">
+              <div class="act-dot-col"><div class="act-dot fail"></div><div class="act-line"></div></div>
+              <div class="act-info">
+                <div class="act-desc">Arsip Proyek.zip gagal ke <strong>Reza</strong></div>
+                <div class="act-meta">88.5 MB · 07:50 · Koneksi terputus</div>
+              </div>
+              <span class="act-badge badge-fail">Gagal</span>
+            </div>
+
+            <div style="padding:16px 24px 8px;font-size:11px;font-weight:600;color:#9A9690;letter-spacing:0.08em;text-transform:uppercase;">Kemarin</div>
+
+            <div class="act-item">
+              <div class="act-dot-col"><div class="act-dot sent"></div><div class="act-line"></div></div>
+              <div class="act-info">
+                <div class="act-desc">Teaser Video.mp4 dikirim ke <strong>Reza</strong></div>
+                <div class="act-meta">15.8 MB · 21:00 · 18 detik</div>
+              </div>
+              <span class="act-badge badge-sent">Kirim</span>
+            </div>
+
+            <div class="act-item">
+              <div class="act-dot-col"><div class="act-dot recv"></div><div class="act-line"></div></div>
+              <div class="act-info">
+                <div class="act-desc">Lagu Favorit.mp3 diterima dari <strong>Tono</strong></div>
+                <div class="act-meta">4.2 MB · 18:10 · 4 detik</div>
+              </div>
+              <span class="act-badge badge-recv">Terima</span>
+            </div>
+
+            <div class="act-item">
+              <div class="act-dot-col"><div class="act-dot sent"></div></div>
+              <div class="act-info">
+                <div class="act-desc">Laporan Bulanan.docx dikirim ke <strong>Sari</strong></div>
+                <div class="act-meta">890 KB · 15:22 · 1 detik</div>
+              </div>
+              <span class="act-badge badge-sent">Kirim</span>
+            </div>
+          </div>
+
+          <div style="height:16px;"></div>
+        </div>
+
+        <div class="bottom-nav">
+          <div class="bnav-item"><i class="ti ti-home"></i><span class="bnav-label">Beranda</span></div>
+          <div class="bnav-item"><i class="ti ti-send"></i><span class="bnav-label">Kirim</span></div>
+          <div class="bnav-item"><i class="ti ti-folder"></i><span class="bnav-label">File</span></div>
+          <div class="bnav-item active"><i class="ti ti-clock"></i><span class="bnav-label">Riwayat</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

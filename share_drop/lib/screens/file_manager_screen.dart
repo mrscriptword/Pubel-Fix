@@ -1,74 +1,72 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'dart:io';
-import 'dart:async';
-import '../theme.dart';
-import '../server/http_server.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../theme/app_colors.dart';
+import '../providers/file_list_provider.dart';
+import '../providers/storage_provider.dart';
+import '../models/file_item.dart';
 
-class FileManagerScreen extends StatefulWidget {
-  final LocalServer server;
-
-  const FileManagerScreen({Key? key, required this.server}) : super(key: key);
+class FileManagerScreen extends ConsumerStatefulWidget {
+  const FileManagerScreen({Key? key}) : super(key: key);
 
   @override
-  State<FileManagerScreen> createState() => _FileManagerScreenState();
+  ConsumerState<FileManagerScreen> createState() => _FileManagerScreenState();
 }
 
-class _FileManagerScreenState extends State<FileManagerScreen> {
+class _FileManagerScreenState extends ConsumerState<FileManagerScreen> {
   final TextEditingController _searchController = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(),
-              _buildSearchBar(),
-              _buildStorageVisual(),
-              _buildSectionHeader('Kategori Folder'),
-              _buildFolderGrid(),
-              const SizedBox(height: 100),
-            ],
-          ),
+    final theme = Theme.of(context);
+    final storageState = ref.watch(storageProvider);
+    final fileListState = ref.watch(fileListProvider);
+
+    return SafeArea(
+      child: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildHeader(theme),
+            _buildSearchBar(theme),
+            _buildStorageVisual(theme, storageState),
+            _buildSectionHeader(theme, 'Kategori Folder'),
+            _buildFolderGrid(theme, fileListState),
+            const SizedBox(height: 100),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(ThemeData theme) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-      child: Text('File Saya', style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 26)),
+      child: Text('File Saya', style: theme.textTheme.titleLarge?.copyWith(fontSize: 26)),
     );
   }
 
-  Widget _buildSearchBar() {
+  Widget _buildSearchBar(ThemeData theme) {
     return Container(
       margin: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.black.withOpacity(0.06)),
+        border: Border.all(color: theme.dividerColor),
       ),
       child: Row(
         children: [
-          Icon(Icons.search_rounded, color: AppTheme.textSecondary, size: 18),
+          Icon(Icons.search_rounded, color: theme.iconTheme.color, size: 20),
           const SizedBox(width: 10),
           Expanded(
             child: TextField(
               controller: _searchController,
-              style: const TextStyle(fontSize: 14),
+              style: theme.textTheme.bodyMedium,
               decoration: InputDecoration(
                 hintText: 'Cari file atau folder...',
-                hintStyle: TextStyle(color: AppTheme.textSecondary),
+                hintStyle: theme.textTheme.bodyMedium?.copyWith(color: theme.iconTheme.color),
                 border: InputBorder.none,
-                isDense: true,
               ),
             ),
           ),
@@ -77,164 +75,139 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
     );
   }
 
-  Widget _buildStorageVisual() {
+  Widget _buildStorageVisual(ThemeData theme, AsyncValue<StorageInfo> storageState) {
     return Container(
       margin: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: AppTheme.primaryColor, borderRadius: BorderRadius.circular(22)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(color: theme.primaryColor, borderRadius: BorderRadius.circular(24)),
+      child: storageState.when(
+        data: (storage) {
+          final double usedGB = storage.usedMB / 1024;
+          final double totalGB = storage.totalMB / 1024;
+          final double percentage = (totalGB > 0) ? (usedGB / totalGB) : 0;
+          final int percentInt = (percentage * 100).toInt();
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Penyimpanan Internal', style: GoogleFonts.syne(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 2),
-                  Text('84% Terpakai', style: TextStyle(color: Colors.white.withOpacity(0.45), fontSize: 12)),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Penyimpanan Internal', style: theme.textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 2),
+                      Text('$percentInt% Terpakai', style: theme.textTheme.bodySmall?.copyWith(color: Colors.white70)),
+                    ],
+                  ),
+                  const Icon(Icons.storage_rounded, color: Colors.white54, size: 24),
                 ],
               ),
-              const Icon(Icons.info_outline_rounded, color: Colors.white38, size: 20),
+              const SizedBox(height: 24),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text('${usedGB.toStringAsFixed(1)} GB', style: theme.textTheme.displayLarge?.copyWith(color: Colors.white, fontSize: 32, height: 1)),
+                  const SizedBox(width: 8),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text('dari ${totalGB.toStringAsFixed(0)} GB', style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white70)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Container(
+                height: 8,
+                width: double.infinity,
+                decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(4)),
+                alignment: Alignment.centerLeft,
+                child: FractionallySizedBox(
+                  widthFactor: percentage.clamp(0.0, 1.0),
+                  child: Container(decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4))),
+                ),
+              ),
             ],
-          ),
-          const SizedBox(height: 16),
-          Text.rich(TextSpan(
-            text: _totalCalculatedSize,
-            style: GoogleFonts.syne(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w800, letterSpacing: -1),
-            children: [
-              TextSpan(text: ' terdeteksi', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 13, fontWeight: FontWeight.w400)),
-            ],
-          )),
-          const SizedBox(height: 10),
-          Container(
-            height: 6,
-            width: double.infinity,
-            decoration: BoxDecoration(color: Colors.white.withOpacity(0.12), borderRadius: BorderRadius.circular(3)),
-            alignment: Alignment.centerLeft,
-            child: FractionallySizedBox(
-              widthFactor: 0.84,
-              child: Container(decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(3))),
-            ),
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              _storageCat(AppTheme.accentBlue, 'Media'),
-              const SizedBox(width: 14),
-              _storageCat(AppTheme.accentGreen, 'Dokumen'),
-              const SizedBox(width: 14),
-              _storageCat(AppTheme.textSecondary, 'Lainnya'),
-            ],
-          ),
-        ],
+          );
+        },
+        loading: () => const Center(child: Padding(padding: EdgeInsets.symmetric(vertical: 24), child: CircularProgressIndicator(color: Colors.white))),
+        error: (err, stack) => Center(child: Text('Gagal memuat: $err', style: const TextStyle(color: Colors.white))),
       ),
     );
   }
 
-  Widget _storageCat(Color color, String label) {
-    return Row(
-      children: [
-        Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-        const SizedBox(width: 6),
-        Text(label, style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.55))),
-      ],
-    );
-  }
-
-  Widget _buildSectionHeader(String title) {
+  Widget _buildSectionHeader(ThemeData theme, String title) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
-      child: Text(title, style: GoogleFonts.syne(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
+      child: Text(title, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
     );
   }
 
-  List<Map<String, dynamic>> _folders = [
-    {'name': 'Kamera', 'path': '/storage/emulated/0/DCIM/Camera', 'icon': Icons.camera_alt_rounded, 'color': AppTheme.accentRed, 'count': '...', 'size': '...'},
-    {'name': 'WhatsApp', 'path': '/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media', 'icon': Icons.message_rounded, 'color': AppTheme.accentGreen, 'count': '...', 'size': '...'},
-    {'name': 'Download', 'path': '/storage/emulated/0/Download', 'icon': Icons.download_rounded, 'color': AppTheme.accentBlue, 'count': '...', 'size': '...'},
-    {'name': 'Dokumen', 'path': '/storage/emulated/0/Documents', 'icon': Icons.description_rounded, 'color': AppTheme.accentAmber, 'count': '...', 'size': '...'},
-  ];
+  Widget _buildFolderGrid(ThemeData theme, AsyncValue<List<FileItem>> fileListState) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        int crossAxisCount = constraints.maxWidth > 600 ? 4 : 2;
+        final isDark = theme.brightness == Brightness.dark;
 
-  String _totalCalculatedSize = "Menghitung...";
+        return fileListState.when(
+          data: (files) {
+            int imgCount = 0; int imgSize = 0;
+            int vidCount = 0; int vidSize = 0;
+            int docCount = 0; int docSize = 0;
+            int musCount = 0; int musSize = 0;
 
-  @override
-  void initState() {
-    super.initState();
-    _loadFolderStats();
-  }
-
-  Future<void> _loadFolderStats() async {
-    int totalOverallSize = 0;
-    
-    for (int i = 0; i < _folders.length; i++) {
-      final dir = Directory(_folders[i]['path'] as String);
-      if (await dir.exists()) {
-        try {
-          int count = 0;
-          int size = 0;
-          await for (final entity in dir.list(recursive: true, followLinks: false).handleError((_) {})) {
-            if (entity is File) {
-              count++;
-              try { size += await entity.length(); } catch (_) {}
+            for (var f in files) {
+              if (f.type == FileType.image) { imgCount++; imgSize += f.sizeInBytes; }
+              else if (f.type == FileType.video) { vidCount++; vidSize += f.sizeInBytes; }
+              else if (f.type == FileType.document) { docCount++; docSize += f.sizeInBytes; }
+              else if (f.type == FileType.music) { musCount++; musSize += f.sizeInBytes; }
             }
-          }
-          totalOverallSize += size;
-          if (mounted) {
-            setState(() {
-              _folders[i]['count'] = count.toString();
-              _folders[i]['size'] = _formatSize(size);
-              _totalCalculatedSize = _formatSize(totalOverallSize);
-            });
-          }
-        } catch (e) {
-          // ignore error
-        }
-      } else {
-        if (mounted) {
-          setState(() {
-            _folders[i]['count'] = '0';
-            _folders[i]['size'] = '0 KB';
-          });
-        }
-      }
-    }
-    
-    if (mounted && totalOverallSize == 0) {
-      setState(() => _totalCalculatedSize = "0 KB");
-    }
-  }
 
-  String _formatSize(int bytes) {
-    if (bytes > 1073741824) return '${(bytes / 1073741824).toStringAsFixed(1)} GB';
-    if (bytes > 1048576) return '${(bytes / 1048576).toStringAsFixed(1)} MB';
-    return '${(bytes / 1024).toStringAsFixed(0)} KB';
-  }
+            String formatSize(int bytes) {
+              if (bytes == 0) return '0 B';
+              double mb = bytes / (1024 * 1024);
+              if (mb > 1024) {
+                return '${(mb/1024).toStringAsFixed(1)} GB';
+              }
+              return '${mb.toStringAsFixed(1)} MB';
+            }
 
-  Widget _buildFolderGrid() {
-    return GridView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2, crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: 1.1,
-      ),
-      itemCount: _folders.length,
-      itemBuilder: (context, index) {
-        final f = _folders[index];
-        return _folderCard(f['name'] as String, f['icon'] as IconData, f['color'] as Color, f['count'] as String, f['size'] as String);
+            final folders = [
+              {'name': 'Gambar', 'icon': Icons.image_rounded, 'color': isDark ? AppColors.darkRed : AppColors.red, 'count': imgCount.toString(), 'size': formatSize(imgSize)},
+              {'name': 'Video', 'icon': Icons.movie_rounded, 'color': isDark ? AppColors.darkAccent : AppColors.accent, 'count': vidCount.toString(), 'size': formatSize(vidSize)},
+              {'name': 'Dokumen', 'icon': Icons.description_rounded, 'color': isDark ? AppColors.darkGreen : AppColors.green, 'count': docCount.toString(), 'size': formatSize(docSize)},
+              {'name': 'Musik', 'icon': Icons.music_note_rounded, 'color': isDark ? AppColors.darkAmber : AppColors.amber, 'count': musCount.toString(), 'size': formatSize(musSize)},
+            ];
+
+            return GridView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: crossAxisCount, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 1.1,
+              ),
+              itemCount: folders.length,
+              itemBuilder: (context, index) {
+                final f = folders[index];
+                return _folderCard(theme, f['name'] as String, f['icon'] as IconData, f['color'] as Color, f['count'] as String, f['size'] as String);
+              },
+            );
+          },
+          loading: () => const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator())),
+          error: (err, stack) => const SizedBox(),
+        );
       },
     );
   }
 
-  Widget _folderCard(String name, IconData icon, Color color, String count, String size) {
+  Widget _folderCard(ThemeData theme, String name, IconData icon, Color color, String count, String size) {
+    final isDark = theme.brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.black.withOpacity(0.05)),
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: theme.dividerColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -243,21 +216,21 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Container(
-                width: 40, height: 40,
-                decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                width: 42, height: 42,
+                decoration: BoxDecoration(color: color.withOpacity(0.15), borderRadius: BorderRadius.circular(12)),
                 alignment: Alignment.center,
-                child: Icon(icon, color: color, size: 20),
+                child: Icon(icon, color: color, size: 22),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(color: Colors.black.withOpacity(0.05), borderRadius: BorderRadius.circular(100)),
-                child: Text(count, style: TextStyle(fontSize: 10, color: AppTheme.textSecondary, fontWeight: FontWeight.w600)),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(color: isDark ? Colors.white10 : Colors.black.withOpacity(0.05), borderRadius: BorderRadius.circular(10)),
+                child: Text(count, style: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
               ),
             ],
           ),
           const Spacer(),
-          Text(name, style: GoogleFonts.syne(fontSize: 15, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
-          Text(size, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+          Text(name, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, fontSize: 15)),
+          Text(size, style: theme.textTheme.bodySmall?.copyWith(color: theme.iconTheme.color)),
         ],
       ),
     );

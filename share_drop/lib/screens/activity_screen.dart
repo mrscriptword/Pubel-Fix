@@ -1,47 +1,44 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import '../theme.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../theme/app_colors.dart';
+import '../providers/activity_history_provider.dart';
 
-import '../server/http_server.dart';
-
-class ActivityScreen extends StatelessWidget {
-  final LocalServer server;
-  const ActivityScreen({Key? key, required this.server}) : super(key: key);
+class ActivityScreen extends ConsumerWidget {
+  const ActivityScreen({Key? key}) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
-                child: Text('Riwayat', style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 26)),
-              ),
-              _buildActivityList(),
-              const SizedBox(height: 100),
-            ],
-          ),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final activities = ref.watch(activityHistoryProvider);
+
+    return SafeArea(
+      child: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
+              child: Text('Riwayat', style: theme.textTheme.titleLarge?.copyWith(fontSize: 26)),
+            ),
+            _buildActivityList(activities, theme),
+            const SizedBox(height: 100),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildActivityList() {
-    final activities = server.transferHistory.reversed.toList();
-
+  Widget _buildActivityList(List<ActivityItem> activities, ThemeData theme) {
     if (activities.isEmpty) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.only(top: 60),
+          padding: const EdgeInsets.only(top: 80),
           child: Column(
             children: [
-              Icon(Icons.history_rounded, size: 64, color: AppTheme.textSecondary.withOpacity(0.3)),
+              Icon(Icons.history_rounded, size: 64, color: theme.iconTheme.color?.withOpacity(0.2)),
               const SizedBox(height: 16),
-              Text('Belum ada riwayat transfer', style: TextStyle(color: AppTheme.textSecondary, fontSize: 14)),
+              Text('Belum ada riwayat transfer', style: theme.textTheme.bodyMedium),
             ],
           ),
         ),
@@ -53,64 +50,64 @@ class ActivityScreen extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       itemCount: activities.length,
       itemBuilder: (context, index) {
-        final act = activities[index];
-        return _activityItem(act['title']!, act['meta']!, act['type']!);
+        return _activityItem(activities[index], theme);
       },
     );
   }
 
-  Widget _activityItem(String title, String meta, String type) {
+  Widget _activityItem(ActivityItem act, ThemeData theme) {
+    final isDark = theme.brightness == Brightness.dark;
     Color dotColor;
     Color badgeBg;
     Color badgeText;
     String badgeLabel;
 
-    if (type == 'sent') {
-      dotColor = AppTheme.accentBlue;
-      badgeBg = AppTheme.accentBlue.withOpacity(0.1);
-      badgeText = AppTheme.accentBlue;
+    if (act.type == 'sent') {
+      dotColor = isDark ? AppColors.darkAccent : AppColors.accent;
+      badgeBg = dotColor.withOpacity(0.15);
+      badgeText = dotColor;
       badgeLabel = 'DIKIRIM';
-    } else if (type == 'recv') {
-      dotColor = AppTheme.accentGreen;
-      badgeBg = AppTheme.accentGreen.withOpacity(0.1);
-      badgeText = AppTheme.accentGreen;
+    } else if (act.type == 'recv') {
+      dotColor = isDark ? AppColors.darkGreen : AppColors.green;
+      badgeBg = dotColor.withOpacity(0.15);
+      badgeText = dotColor;
       badgeLabel = 'DITERIMA';
     } else {
-      dotColor = AppTheme.accentRed;
-      badgeBg = AppTheme.accentRed.withOpacity(0.1);
-      badgeText = AppTheme.accentRed;
+      dotColor = isDark ? AppColors.darkRed : AppColors.red;
+      badgeBg = dotColor.withOpacity(0.15);
+      badgeText = dotColor;
       badgeLabel = 'GAGAL';
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.black.withOpacity(0.04)))),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: theme.dividerColor))),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Column(
             children: [
               const SizedBox(height: 4),
-              Container(width: 10, height: 10, decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle)),
-              Container(width: 1, height: 40, color: Colors.black.withOpacity(0.07)),
+              Container(width: 12, height: 12, decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle, border: Border.all(color: theme.scaffoldBackgroundColor, width: 2))),
+              Container(width: 2, height: 40, color: theme.dividerColor),
             ],
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppTheme.textPrimary, height: 1.4)),
-                const SizedBox(height: 3),
-                Text(meta, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                Text(act.title, style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold, height: 1.3)),
+                const SizedBox(height: 4),
+                Text(act.meta, style: theme.textTheme.bodySmall?.copyWith(color: theme.iconTheme.color)),
               ],
             ),
           ),
           const SizedBox(width: 8),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(color: badgeBg, borderRadius: BorderRadius.circular(100)),
-            child: Text(badgeLabel, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: badgeText)),
+            child: Text(badgeLabel, style: theme.textTheme.labelSmall?.copyWith(color: badgeText, fontWeight: FontWeight.bold)),
           ),
         ],
       ),

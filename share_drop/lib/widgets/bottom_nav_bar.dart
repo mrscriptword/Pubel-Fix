@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import '../theme.dart';
+import 'dart:ui';
 
-class CustomBottomNavBar extends StatelessWidget {
+class AppBottomNavBar extends StatelessWidget {
   final int currentIndex;
   final Function(int) onTap;
 
-  const CustomBottomNavBar({
+  const AppBottomNavBar({
     Key? key,
     required this.currentIndex,
     required this.onTap,
@@ -14,30 +13,27 @@ class CustomBottomNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 20,
-            offset: const Offset(0, -5),
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return ClipRRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        child: Container(
+          height: 84,
+          padding: const EdgeInsets.only(top: 12),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xE6111009) : const Color(0xE6F7F5F1), // rgba with 0.9 opacity
+            border: Border(top: BorderSide(color: theme.dividerColor)),
           ),
-        ],
-        border: Border(
-          top: BorderSide(color: Colors.black.withOpacity(0.03), width: 1),
-        ),
-      ),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildNavItem(Icons.home_outlined, Icons.home_rounded, 'Beranda', 0),
-              _buildNavItem(Icons.swap_horiz_rounded, Icons.swap_horiz_rounded, 'Kirim', 1),
-              _buildNavItem(Icons.folder_outlined, Icons.folder_rounded, 'File', 2),
-              _buildNavItem(Icons.history_rounded, Icons.history_rounded, 'Riwayat', 3),
+              _buildNavItem(context, Icons.home_outlined, 'Beranda', 0),
+              _buildNavItem(context, Icons.send_outlined, 'Kirim', 1),
+              _buildNavItem(context, Icons.folder_outlined, 'File', 2),
+              _buildNavItem(context, Icons.history_outlined, 'Riwayat', 3),
             ],
           ),
         ),
@@ -45,40 +41,43 @@ class CustomBottomNavBar extends StatelessWidget {
     );
   }
 
-  Widget _buildNavItem(IconData icon, IconData activeIcon, String label, int index) {
+  Widget _buildNavItem(BuildContext context, IconData icon, String label, int index) {
     final isActive = currentIndex == index;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    
+    // Warna mengikuti mobile design (inactive abu-abu, active hitam/putih tegas)
+    final inactiveColor = const Color(0xFFB0ADA8);
+    final activeColor = theme.textTheme.bodyLarge?.color ?? Colors.black;
+    final bgColor = isActive ? (isDark ? Colors.white12 : Colors.black12) : Colors.transparent;
+
     return GestureDetector(
       onTap: () => onTap(index),
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        padding: EdgeInsets.symmetric(
-          horizontal: isActive ? 18 : 12,
-          vertical: 10,
-        ),
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         decoration: BoxDecoration(
-          color: isActive ? AppTheme.primaryColor.withOpacity(0.1) : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
+          color: bgColor,
+          borderRadius: BorderRadius.circular(14),
         ),
-        child: Row(
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              isActive ? activeIcon : icon,
-              color: isActive ? AppTheme.primaryColor : AppTheme.textSecondary,
-              size: 24,
+              icon,
+              size: 22,
+              color: isActive ? activeColor : inactiveColor,
             ),
-            if (isActive) ...[
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: GoogleFonts.syne(
-                  color: AppTheme.primaryColor,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: isActive ? activeColor : inactiveColor,
+                fontSize: 10,
+                letterSpacing: 0.2, // setara dengan 0.02em
               ),
-            ],
+            ),
           ],
         ),
       ),
